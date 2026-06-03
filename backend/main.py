@@ -7,6 +7,11 @@ import json
 import db
 import os
 import traceback
+import time
+from dotenv import load_dotenv
+
+# 環境変数の読み込み
+load_dotenv()
 
 # --- 1. データモデル定義 ---
 class SectionInput(BaseModel):
@@ -41,15 +46,20 @@ class LLMAnalyzer:
 【歌詞】:
 {lyrics}
 
+【分析指示】
+1. 歌詞を「主語や目的語を補い、倒置や比喩をなくした、文法的に正しい論理的な散文（一文）」に翻訳し、`prose_translation` に出力してください。
+2. 翻訳した散文と元の歌詞を比較し、どこを省略したか、どこを倒置したか、どんな意味的摩擦を起こしているか等の「差分」を抽出し、`extracted_rhetoric` に出力してください。
+
 【出力JSONスキーマ】
 {{
+  "prose_translation": "(翻訳した論理的な散文)",
   "sentiment_score": (感情極性 -1.0〜1.0の数値),
   "timeline": ("past" | "present" | "future" | "mixed"),
   "extracted_rhetoric": [
     {{
       "type": "(修辞技法の種類。例: 意味的摩擦, 倒置法, 省略, 比喩, 反復 等)",
       "phrase": "(該当フレーズ)",
-      "reason": "(なぜそう判定したかの簡潔な理由)"
+      "reason": "(元の散文と比較してなぜそう判定したかの簡潔な理由)"
     }}
   ],
   "phrase_start": "(セクションの特徴的な文頭フレーズ)",
@@ -59,7 +69,7 @@ class LLMAnalyzer:
 
         try:
             response = self.client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 contents=prompt,
                 config={
                     "response_mime_type": "application/json",
@@ -74,6 +84,7 @@ class LLMAnalyzer:
     def _mock_response(self, section_name: str, lyrics: str) -> dict:
         """LLMが使えない場合のモックデータ"""
         return {
+            "prose_translation": "（ここに論理的な散文への翻訳結果が表示されます）",
             "sentiment_score": 0.0,
             "timeline": "present",
             "extracted_rhetoric": [],
@@ -114,14 +125,17 @@ async def analyze_lyrics(req: AnalyzeRequest):
         # セクション別分析 (Python & LLM)
         section_results = []
         concreteness_scores = []
+        information_densities = []
 
         for sec in req.sections:
-            # Python側: 確実な計量処理（形態素解析・モーラ・母音）
+            # Python側: 確実な計量処理（形態素解析・モーラ・母音・情報密度）
             py_res = rule_analyzer.analyze_section(sec.lyrics_raw)
-            # LLM側: 文脈・レトリック抽出
+            # LLM側: 文脈・レトリック・散文抽出
             llm_res = llm_analyzer.analyze_section(sec.section_name, sec.lyrics_raw)
+            time.sleep(2)  # APIレートリミット回避のための待機
 
             concreteness_scores.append(llm_res.get("concreteness_score", 3))
+            information_densities.append(py_res.get("information_density", 0.0))
 
             # 結果のマージ
             merged_section = {
@@ -131,7 +145,9 @@ async def analyze_lyrics(req: AnalyzeRequest):
                 "mora_counts": py_res["mora_counts"],
                 "vowels": py_res["vowels"],
                 "end_vowels": py_res["end_vowels"],
+                "information_density": py_res.get("information_density", 0.0),
                 # LLM側の解析結果
+                "prose_translation": llm_res.get("prose_translation", ""),
                 "sentiment_score": llm_res.get("sentiment_score", 0),
                 "timeline": llm_res.get("timeline", "present"),
                 "extracted_rhetoric": llm_res.get("extracted_rhetoric", []),
@@ -142,6 +158,7 @@ async def analyze_lyrics(req: AnalyzeRequest):
 
         # 総合スコアの算出
         avg_concreteness = sum(concreteness_scores) / len(concreteness_scores) if concreteness_scores else 3.0
+        avg_info_density = sum(information_densities) / len(information_densities) if information_densities else 0.0
 
         final_response = {
             "song_id": req.song_id,
@@ -157,6 +174,7 @@ async def analyze_lyrics(req: AnalyzeRequest):
                 "first_person_count": macro["first_person_count"],
                 "second_person_count": macro["second_person_count"],
                 "total_tokens": macro["total_tokens"],
+                "information_density": round(avg_info_density, 4),
                 # LLM側の平均
                 "concreteness_score": round(avg_concreteness, 1),
             },

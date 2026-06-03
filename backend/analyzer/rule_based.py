@@ -109,18 +109,23 @@ class RuleBasedAnalyzer:
     # ========================================
     def analyze_section(self, lyrics: str) -> dict:
         """
-        セクション単位の歌詞を受け取り、モーラ数・母音配列等を返す。
+        セクション単位の歌詞を受け取り、モーラ数・母音配列、および情報密度を返す。
         """
         lines = [line for line in lyrics.split("\n") if line.strip()]
 
         mora_counts = []
         vowels_per_line = []
         end_vowels = []
+        
+        # 情報密度計算用の変数
+        total_section_mora = 0
+        target_pos_count = 0  # 名詞 + 動詞 の数
 
         for line in lines:
             # モーラ数カウント
             mora = self._count_mora(line)
             mora_counts.append(mora)
+            total_section_mora += mora
 
             # 母音配列の抽出
             line_vowels = self._extract_vowels(line)
@@ -131,11 +136,23 @@ class RuleBasedAnalyzer:
                 end_vowels.append(line_vowels[-1])
             else:
                 end_vowels.append("")
+                
+            # 行ごとの形態素解析で名詞・動詞をカウント
+            tokens = list(_tokenizer.tokenize(line))
+            for token in tokens:
+                pos = token.part_of_speech.split(",")[0]
+                if pos in ("名詞", "動詞"):
+                    target_pos_count += 1
+                    
+        # 情報密度の算出（改行という休符を無視した物理的な情報量）
+        # 例: (名詞+動詞) / 総モーラ数。モーラが0の場合は0。
+        information_density = round(target_pos_count / total_section_mora, 4) if total_section_mora > 0 else 0.0
 
         return {
             "mora_counts": mora_counts,
             "vowels": vowels_per_line,
             "end_vowels": end_vowels,
+            "information_density": information_density,
         }
 
     # ========================================
