@@ -7,17 +7,9 @@ LLMには一切依存せず、確実な数値データを返す。
 
 import re
 from janome.tokenizer import Tokenizer
-from pykakasi import kakasi
 
 # --- Janome トークナイザー（シングルトン） ---
 _tokenizer = Tokenizer()
-
-# --- pykakasi 変換器（シングルトン） ---
-_kakasi = kakasi()
-_kakasi.setMode("H", "a")  # ひらがな → ローマ字
-_kakasi.setMode("K", "a")  # カタカナ → ローマ字
-_kakasi.setMode("J", "a")  # 漢字 → ローマ字
-_converter = _kakasi.getConverter()
 
 # --- 定数定義 ---
 FIRST_PERSON_WORDS = {
@@ -203,9 +195,27 @@ class RuleBasedAnalyzer:
 
     def _extract_vowels(self, text: str) -> list:
         """
-        テキストをローマ字に変換し、母音（a, i, u, e, o）の配列を返す。
+        Janomeの読み仮名（カタカナ）を利用して母音配列を抽出する（軽量版）
         """
-        romaji = _converter.do(text)
-        # ローマ字から母音のみを抽出
-        vowels = VOWEL_PATTERN.findall(romaji.lower())
+        vowel_map = {
+            "ア": "a", "カ": "a", "サ": "a", "タ": "a", "ナ": "a", "ハ": "a", "マ": "a", "ヤ": "a", "ラ": "a", "ワ": "a", "ガ": "a", "ザ": "a", "ダ": "a", "バ": "a", "パ": "a", "ァ": "a", "ャ": "a",
+            "イ": "i", "キ": "i", "シ": "i", "チ": "i", "ニ": "i", "ヒ": "i", "ミ": "i", "リ": "i", "ギ": "i", "ジ": "i", "ヂ": "i", "ビ": "i", "ピ": "i", "ィ": "i",
+            "ウ": "u", "ク": "u", "ス": "u", "ツ": "u", "ヌ": "u", "フ": "u", "ム": "u", "ユ": "u", "ル": "u", "グ": "u", "ズ": "u", "ヅ": "u", "ブ": "u", "プ": "u", "ゥ": "u", "ュ": "u", "ヴ": "u",
+            "エ": "e", "ケ": "e", "セ": "e", "テ": "e", "ネ": "e", "ヘ": "e", "メ": "e", "レ": "e", "ゲ": "e", "ゼ": "e", "デ": "e", "ベ": "e", "ペ": "e", "ェ": "e",
+            "オ": "o", "コ": "o", "ソ": "o", "ト": "o", "ノ": "o", "ホ": "o", "モ": "o", "ヨ": "o", "ロ": "o", "ヲ": "o", "ゴ": "o", "ゾ": "o", "ド": "o", "ボ": "o", "ポ": "o", "ォ": "o", "ョ": "o"
+        }
+        
+        vowels = []
+        tokens = _tokenizer.tokenize(text)
+        for token in tokens:
+            reading = token.reading
+            if reading and reading != "*":
+                # 読みがある場合はカタカナから母音に変換
+                for ch in reading:
+                    if ch in vowel_map:
+                        vowels.append(vowel_map[ch])
+            else:
+                # 記号などは無視
+                pass
+                
         return vowels

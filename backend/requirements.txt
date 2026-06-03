@@ -3,6 +3,5 @@ uvicorn
 pydantic
 google-genai
 janome
-pykakasi
 supabase
 python-dotenv
