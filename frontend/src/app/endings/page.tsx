@@ -21,7 +21,7 @@ export default function EndingsPage() {
     setLoading(true);
     try {
       const data = await fetchSentenceEndings();
-      setEndings(data.sort((a, b) => b.count - a.count));
+      setEndings(data.sort((a, b) => b.appearance_count - a.appearance_count));
     } catch (err) {
       console.error("文末表現の取得に失敗:", err);
     } finally {

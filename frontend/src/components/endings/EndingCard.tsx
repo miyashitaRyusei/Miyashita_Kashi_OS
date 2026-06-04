@@ -25,7 +25,7 @@ export default function EndingCard({ ending }: EndingCardProps) {
             }`}
           />
           <span className="text-[16px] font-bold text-[#37352f]">
-            「{ending.base_form}」
+            「{ending.ending_text}」
           </span>
           <span className="inline-block px-2 py-0.5 rounded text-[10px] bg-gray-100 text-gray-600 border border-gray-200">
             {ending.category}
@@ -33,7 +33,7 @@ export default function EndingCard({ ending }: EndingCardProps) {
         </div>
         <div className="flex items-center gap-1.5 text-[12px] text-[#787774]">
           <Hash size={12} />
-          {ending.count}回
+          {ending.appearance_count}回
         </div>
       </button>
 
