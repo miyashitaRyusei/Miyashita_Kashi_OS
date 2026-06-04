@@ -62,6 +62,15 @@ export interface LyricRule {
   created_at: string;
 }
 
+export interface LyricPhrase {
+  id: string;
+  phrase_type: 'start' | 'end';
+  text: string;
+  category: string | null;
+  appearance_count: number;
+  examples: string[] | null;
+}
+
 export interface Rhetoric {
   id: string;
   section_id: string;

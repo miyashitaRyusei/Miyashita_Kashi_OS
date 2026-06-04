@@ -13,6 +13,7 @@ import type {
   SentenceEnding,
   LyricRule,
   Rhetoric,
+  LyricPhrase,
 } from "@/types";
 
 // ============================================
@@ -164,4 +165,14 @@ export async function fetchSentenceEndings(
 export async function fetchLyricRules(): Promise<LyricRule[]> {
   const data = await fetchAPI<{ rules: LyricRule[] }>("/api/lyric-rules");
   return data.rules;
+}
+
+// ============================================
+// Lyric Phrases API
+// ============================================
+
+/** 書き出し・書き終わりのフレーズを取得する */
+export async function fetchLyricPhrases(): Promise<LyricPhrase[]> {
+  const data = await fetchAPI<{ phrases: LyricPhrase[] }>("/api/phrases");
+  return data.phrases;
 }

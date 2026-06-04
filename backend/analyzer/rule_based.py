@@ -34,6 +34,13 @@ class SentenceEndingResult(BaseModel):
     source_line: str    # 抽出元の行テキスト（デバッグ・確認用）
 
 
+class PhraseResult(BaseModel):
+    """書き出し・書き終わりのフレーズ抽出結果"""
+    phrase_type: str    # "start" or "end"
+    text: str           # フレーズ本体
+    source_line: str    # 抽出元の行
+
+
 class SectionResult(BaseModel):
     """1セクション分の解析結果。DB の sections テーブルに対応する。"""
     section_type: str           # 例: '1A', '1B', 'Chorus', 'Bridge'
@@ -48,6 +55,7 @@ class SectionResult(BaseModel):
     # 子要素
     lines: list[LineResult]
     sentence_endings: list[SentenceEndingResult]
+    phrases: list[PhraseResult]
 
 
 class SongAnalysisResult(BaseModel):
@@ -164,12 +172,16 @@ class RuleBasedAnalyzer:
             line_result = self.analyze_line(line_number=i + 1, text=line_text)
             line_results.append(line_result)
 
-        # 文末表現の抽出
+        # 文末表現とフレーズの抽出
         sentence_endings: list[SentenceEndingResult] = []
+        phrases: list[PhraseResult] = []
         for line_text in raw_lines:
             ending = self.extract_sentence_ending(line_text)
             if ending is not None:
                 sentence_endings.append(ending)
+            
+            line_phrases = self.extract_phrases(line_text)
+            phrases.extend(line_phrases)
 
         # 総モーラ数
         total_mora = sum(lr.mora_count for lr in line_results)
@@ -188,6 +200,7 @@ class RuleBasedAnalyzer:
             content_word_density=densities["content_word_density"],
             lines=line_results,
             sentence_endings=sentence_endings,
+            phrases=phrases,
         )
 
     # ===================================================
@@ -218,6 +231,71 @@ class RuleBasedAnalyzer:
             mora_count=mora_count,
             end_vowel=end_vowel,
         )
+
+    # ===================================================
+    # フレーズ（書き出し・書き終わり）の抽出
+    # ===================================================
+
+    def extract_phrases(self, text: str) -> list[PhraseResult]:
+        """
+        行から「書き出し」と「書き終わり」のチャンク（自立語＋付属語）を抽出する。
+        """
+        stripped = text.strip()
+        if not stripped:
+            return []
+
+        tokens = _tokenizer(stripped)
+        if not tokens:
+            return []
+
+        def is_independent(token) -> bool:
+            features = token.feature
+            pos_major = features[0]
+            pos_minor = features[1] if len(features) > 1 else ""
+            if pos_major in {"名詞", "動詞", "形容詞", "副詞", "連体詞", "感動詞", "接続詞", "接頭詞"}:
+                if pos_minor in {"非自立", "接尾"}:
+                    return False
+                return True
+            return False
+
+        phrases = []
+
+        # --- 書き出し (start) 抽出 ---
+        start_parts = []
+        started = False
+        for token in tokens:
+            if is_independent(token):
+                if started:
+                    # 2つ目の自立語に到達したので終了
+                    break
+                else:
+                    started = True
+                    start_parts.append(token.surface)
+            else:
+                if started:
+                    start_parts.append(token.surface)
+                # 最初の自立語が来る前の記号や助詞は無視（あるいは含めてもいいが、今回は無視）
+        
+        start_text = "".join(start_parts)
+        # 記号除去
+        start_text = _PUNCTUATION_RE.sub("", start_text).strip()
+        if start_text:
+            phrases.append(PhraseResult(phrase_type="start", text=start_text, source_line=stripped))
+
+        # --- 書き終わり (end) 抽出 ---
+        end_parts = []
+        for token in reversed(tokens):
+            end_parts.append(token.surface)
+            if is_independent(token):
+                break
+        
+        end_text = "".join(reversed(end_parts))
+        end_text = _PUNCTUATION_RE.sub("", end_text).strip()
+        # 書き出しと書き終わりが完全に一致する場合（1語しかない等）は重複を避ける
+        if end_text and end_text != start_text:
+            phrases.append(PhraseResult(phrase_type="end", text=end_text, source_line=stripped))
+
+        return phrases
 
     # ===================================================
     # 文末表現の抽出

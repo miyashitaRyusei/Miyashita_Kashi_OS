@@ -58,6 +58,13 @@ class EndingClassification(BaseModel):
     category: str           # "断定" | "否定" | "疑問" | "願望" | "体言止め" | "未完了" | "余韻"
 
 
+class PhraseClassification(BaseModel):
+    """書き出し・書き終わりのフレーズに対する分類結果"""
+    phrase_type: str        # 'start' or 'end'
+    text: str               # フレーズ本体
+    category: str
+
+
 class ExtractedRule(BaseModel):
     """楽曲から抽出された「真似できる作詞ルール」。"""
     rule_name: str          # キャッチーで短いタイトル
@@ -73,6 +80,7 @@ class SongLLMResponse(BaseModel):
     abstract_balance_score: int     # 1〜4
     colloquial_level: str           # "colloquial" | "intermediate" | "poetic"
     ending_classifications: list[EndingClassification]
+    phrase_classifications: list[PhraseClassification]
     extracted_rules: list[ExtractedRule]
 
 
@@ -136,6 +144,15 @@ SONG_ANALYSIS_PROMPT = """あなたはプロの作詞アナリストです。
 
 【Python解析で抽出された文末表現リスト】:
 {sentence_endings_json}
+
+## フレーズの分類ルール (phrase_classifications)
+- 以下の「抽出されたフレーズリスト」の各項目を、カテゴリに分類すること。
+- 'start' (書き出し) のカテゴリ: '情景・描写' | '感情・内省' | '行動・状態' | '呼びかけ・対象' | '時間・場面転換' | 'その他'
+- 'end' (書き終わり) のカテゴリ: '情景の余韻' | '感情の着地' | '行動の完了・継続' | '問いかけ・願い' | '断定・決意' | 'その他'
+- リスト内の全項目に対して必ず分類結果を返すこと（スキップ禁止）。
+
+【抽出されたフレーズリスト】:
+{phrases_json}
 
 ## 作詞ルールの抽出ルール (extracted_rules)
 - この楽曲から「他の作詞でも真似できる具体的なテクニック」をルールとして抽出すること。
@@ -230,6 +247,7 @@ class LLMAnalyzer:
         artist: str,
         full_lyrics: str,
         sentence_endings: list[dict],
+        phrases: list[dict],
     ) -> SongLLMResponse:
         """
         楽曲全体のLLM分析を行う。
@@ -239,7 +257,8 @@ class LLMAnalyzer:
             artist: アーティスト名
             full_lyrics: 全歌詞テキスト
             sentence_endings: Phase 2で抽出された文末表現のリスト
-                [{"ending_text": "のに", "source_line": "..."}, ...]
+            phrases: Phase 2で抽出されたフレーズのリスト
+                [{"phrase_type": "start", "text": "...", "source_line": "..."}, ...]
 
         Returns:
             SongLLMResponse: メタデータ・文末分類・ルール抽出の結果
@@ -256,11 +275,21 @@ class LLMAnalyzer:
             endings_for_prompt, ensure_ascii=False, indent=2
         )
 
+        # フレーズリストをJSON文字列化
+        phrases_for_prompt = [
+            {"phrase_type": p["phrase_type"], "text": p["text"]}
+            for p in phrases
+        ]
+        phrases_json = json.dumps(
+            phrases_for_prompt, ensure_ascii=False, indent=2
+        ) if phrases_for_prompt else "（フレーズは抽出されませんでした）"
+
         prompt = SONG_ANALYSIS_PROMPT.format(
             title=title,
             artist=artist,
             full_lyrics=full_lyrics,
             sentence_endings_json=sentence_endings_json,
+            phrases_json=phrases_json,
         )
 
         try:
@@ -319,5 +348,6 @@ class LLMAnalyzer:
             abstract_balance_score=3,
             colloquial_level="intermediate",
             ending_classifications=mock_endings,
+            phrase_classifications=[],
             extracted_rules=[],
         )

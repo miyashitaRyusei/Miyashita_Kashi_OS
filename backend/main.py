@@ -68,6 +68,7 @@ def process_analysis_task(song_id: str, title: str, artist: str, sections: List[
 
         section_results = []
         all_sentence_endings = []
+        all_phrases = []
 
         # 1. セクション別分析 (Python & LLM API①)
         for sec_input, py_sec_res in zip(sections, py_song_res.sections):
@@ -84,6 +85,13 @@ def process_analysis_task(song_id: str, title: str, artist: str, sections: List[
 
             for ending in py_sec_res.sentence_endings:
                 all_sentence_endings.append({"ending_text": ending.ending_text})
+
+            for phrase in getattr(py_sec_res, "phrases", []):
+                all_phrases.append({
+                    "phrase_type": phrase.phrase_type,
+                    "text": phrase.text,
+                    "source_line": phrase.source_line
+                })
 
             merged_section = {
                 "section_name": py_sec_res.section_type,
@@ -111,7 +119,8 @@ def process_analysis_task(song_id: str, title: str, artist: str, sections: List[
             title=title,
             artist=artist,
             full_lyrics=all_lyrics,
-            sentence_endings=all_sentence_endings
+            sentence_endings=all_sentence_endings,
+            phrases=all_phrases
         )
 
         # 4. 全体の統合とDB保存
@@ -128,6 +137,7 @@ def process_analysis_task(song_id: str, title: str, artist: str, sections: List[
             "timeline": song_llm_res.timeline,
             "sections": section_results,
             "ending_classifications": [e.model_dump() for e in song_llm_res.ending_classifications],
+            "phrase_classifications": [p.model_dump() for p in song_llm_res.phrase_classifications],
             "extracted_rules": [r.model_dump() for r in song_llm_res.extracted_rules],
         }
 
@@ -275,6 +285,15 @@ async def get_sentence_endings_api():
 async def get_lyric_rules_api():
     try:
         return {"rules": db.get_lyric_rules()}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/phrases")
+async def get_phrases_api():
+    try:
+        return {"phrases": db.get_lyric_phrases()}
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

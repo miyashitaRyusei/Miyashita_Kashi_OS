@@ -165,6 +165,21 @@ def save_song_analysis(song_id: str, analysis_result: dict) -> dict:
         })
     if rules_records:
         sb.table("lyric_rules").insert(rules_records).execute()
+        
+    # フレーズ辞典 (Lyric Phrases)
+    phrase_classifications = analysis_result.get("phrase_classifications", [])
+    phrase_records = []
+    for pc in phrase_classifications:
+        phrase_records.append({
+            "song_id": song_id,
+            "phrase_type": pc.get("phrase_type", "start"),
+            "text": pc.get("text", ""),
+            "category": pc.get("category", "その他"),
+            "appearance_count": 1,
+            "examples": []
+        })
+    if phrase_records:
+        sb.table("lyric_phrases").insert(phrase_records).execute()
 
     # 4. 最後にステータスをcompletedにして、フロントエンドへのポーリング完了を通知
     sb.table("songs").update({"analysis_status": "completed"}).eq("id", song_id).execute()
@@ -276,3 +291,33 @@ def get_sentence_endings() -> list:
 def get_lyric_rules() -> list:
     sb = get_supabase()
     return sb.table("lyric_rules").select("*").order("created_at", desc=True).execute().data
+
+
+def get_lyric_phrases() -> list:
+    """全楽曲のフレーズを集計して返す"""
+    sb = get_supabase()
+    data = sb.table("lyric_phrases").select("*").execute().data
+    
+    aggregated = {}
+    for row in data:
+        text = row.get("text")
+        p_type = row.get("phrase_type")
+        if not text or not p_type:
+            continue
+        
+        key = f"{p_type}_{text}"
+        if key not in aggregated:
+            aggregated[key] = {
+                "id": row["id"],
+                "phrase_type": p_type,
+                "text": text,
+                "category": row.get("category"),
+                "appearance_count": 0,
+                "examples": []
+            }
+        aggregated[key]["appearance_count"] += row.get("appearance_count", 1)
+        if row.get("examples"):
+            aggregated[key]["examples"].extend(row["examples"])
+            
+    sorted_phrases = sorted(aggregated.values(), key=lambda x: x["appearance_count"], reverse=True)
+    return sorted_phrases
