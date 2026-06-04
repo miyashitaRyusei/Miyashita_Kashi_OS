@@ -61,18 +61,11 @@ def save_song_analysis(song_id: str, analysis_result: dict) -> dict:
 
     # 1. songs テーブルのUPDATE
     song_record = {
-        "sentiment_score": macro.get("concreteness_score", 0), # LLM側の平均？(元の実装に合わせる) Wait, 旧実装は sentiment_score=None になってた。LLM側の平均を入れる。
         "sentiment_score": analysis_result.get("macro_metrics", {}).get("sentiment_score", None),
         "abstract_balance_score": macro.get("concreteness_score", 3.0),
         "information_density": macro.get("information_density", 0.0),
         "colloquial_level": analysis_result.get("colloquial_level", None),
-        "analysis_status": "completed",
     }
-    
-    # 実際には avg_sentiment なども計算して入れるべきだが、ここでは LLMAnalyzer の仕様に合わせる
-    # 旧DB保存ロジックでは macro から諸々取っていた
-    # (ここはフロントで必要な最低限のカラムを更新)
-    song_record["sentiment_score"] = analysis_result.get("sentiment_score", 0.0)
 
     sb.table("songs").update(song_record).eq("id", song_id).execute()
 
@@ -133,8 +126,9 @@ def save_song_analysis(song_id: str, analysis_result: dict) -> dict:
         if rhetoric_records:
             sb.table("rhetoric").insert(rhetoric_records).execute()
 
-    # 3. ルールと文末表現の保存
-    # (既存のルール保存などのロジックがあればここへ。今回は省略・簡易化)
+    # 3. 最後にステータスをcompletedにして、フロントエンドへのポーリング完了を通知
+    sb.table("songs").update({"analysis_status": "completed"}).eq("id", song_id).execute()
+
     return sb.table("songs").select("*").eq("id", song_id).execute().data[0]
 
 
