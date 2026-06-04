@@ -1,0 +1,80 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { BookType } from "lucide-react";
+import type { SentenceEnding } from "@/types";
+import { fetchSentenceEndings } from "@/lib/api";
+import EndingCategoryTabs from "@/components/endings/EndingCategoryTabs";
+import EndingCard from "@/components/endings/EndingCard";
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
+
+export default function EndingsPage() {
+  const [endings, setEndings] = useState<SentenceEnding[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState("");
+
+  useEffect(() => {
+    loadEndings();
+  }, []);
+
+  const loadEndings = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchSentenceEndings();
+      setEndings(data.sort((a, b) => b.count - a.count));
+    } catch (err) {
+      console.error("文末表現の取得に失敗:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const categories = Array.from(new Set(endings.map(e => e.category))).filter(Boolean);
+  
+  const filteredEndings = activeCategory 
+    ? endings.filter(e => e.category === activeCategory)
+    : endings;
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="max-w-4xl mx-auto px-8 py-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-[#37352f] flex items-center gap-2.5">
+            <BookType size={22} className="text-[#787774]" />
+            文末表現ディクショナリ
+          </h1>
+          <p className="text-[13px] text-[#9ca3af] mt-1">
+            作詞によく使われる文末表現とレトリックのパターン辞典。
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="py-20">
+            <LoadingSpinner />
+          </div>
+        ) : (
+          <>
+            <div className="mb-6">
+              <EndingCategoryTabs 
+                categories={categories} 
+                activeCategory={activeCategory} 
+                onSelect={setActiveCategory} 
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {filteredEndings.map((ending) => (
+                <EndingCard key={ending.id} ending={ending} />
+              ))}
+              {filteredEndings.length === 0 && (
+                <div className="col-span-full py-12 text-center text-[#9ca3af] text-[13px]">
+                  該当する文末表現がありません。
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

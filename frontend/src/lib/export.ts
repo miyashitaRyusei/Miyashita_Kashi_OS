@@ -1,0 +1,202 @@
+/**
+ * export.ts — LLMエクスポート用のフォーマット関数
+ *
+ * 楽曲の解析データを Markdown / JSON 形式に変換し、
+ * LLMに貼り付けやすい形でクリップボードにコピーするための関数群。
+ */
+
+import type { Song } from "@/types";
+import type { SongWithDetails, SectionWithDetails } from "./api";
+
+// ============================================
+// 定数（ラベルマッピング）
+// ============================================
+
+const TIMELINE_LABELS: Record<string, string> = {
+  past: "過去",
+  present: "現在",
+  future: "未来",
+  mixed: "混合",
+};
+
+const COLLOQUIAL_LABELS: Record<string, string> = {
+  colloquial: "口語",
+  intermediate: "中間",
+  poetic: "詩的",
+};
+
+const ABSTRACT_LABELS: Record<number, string> = {
+  1: "抽象的",
+  2: "やや抽象的",
+  3: "やや具象的",
+  4: "具象的",
+};
+
+// ============================================
+// Markdown フォーマット
+// ============================================
+
+/** 単一楽曲の解析データを Markdown 形式に変換する */
+export function formatSongAsMarkdown(song: SongWithDetails): string {
+  const lines: string[] = [];
+
+  // --- ヘッダー ---
+  lines.push(`# 「${song.title}」 / ${song.artist}`);
+  lines.push("");
+
+  // --- メタデータ ---
+  lines.push("| 項目 | 値 |");
+  lines.push("|------|-----|");
+  if (song.sentiment_score !== null) {
+    lines.push(`| 感情極性 | ${song.sentiment_score} |`);
+  }
+  if (song.abstract_balance_score !== null) {
+    const label = ABSTRACT_LABELS[song.abstract_balance_score] || "";
+    lines.push(
+      `| 抽象/具体 | ${song.abstract_balance_score}/4 (${label}) |`
+    );
+  }
+  if (song.colloquial_level) {
+    const label = COLLOQUIAL_LABELS[song.colloquial_level] || song.colloquial_level;
+    lines.push(`| 口語度 | ${label} |`);
+  }
+  if (song.information_density !== null) {
+    lines.push(`| 情報密度 | ${song.information_density} |`);
+  }
+  lines.push("");
+
+  // --- セクション ---
+  if (song.sections && song.sections.length > 0) {
+    for (const section of song.sections) {
+      lines.push(formatSectionAsMarkdown(section));
+    }
+  }
+
+  return lines.join("\n");
+}
+
+/** セクションの解析データを Markdown 形式に変換する */
+function formatSectionAsMarkdown(section: SectionWithDetails): string {
+  const lines: string[] = [];
+
+  // セクションヘッダー
+  lines.push(
+    `## [${section.section_type}] (総モーラ: ${section.total_mora})`
+  );
+  lines.push("");
+
+  // 密度サマリー
+  lines.push("**密度:**");
+  lines.push(
+    `名詞=${section.noun_density ?? "-"} / 動詞=${section.verb_density ?? "-"} / 形容詞=${section.adj_density ?? "-"} / 副詞=${section.adv_density ?? "-"} / 内容語=${section.content_word_density ?? "-"}`
+  );
+  lines.push("");
+
+  // 行単位の対訳テーブル
+  if (section.lines && section.lines.length > 0) {
+    lines.push("| # | 歌詞 | 散文翻訳 | モーラ | 末尾母音 |");
+    lines.push("|---|------|---------|-------|---------|");
+    for (const line of section.lines) {
+      const prose = line.prose_text || "—";
+      const vowel = line.end_vowel?.toUpperCase() || "—";
+      lines.push(
+        `| ${line.line_number} | ${line.text} | ${prose} | ${line.mora_count} | ${vowel} |`
+      );
+    }
+    lines.push("");
+  }
+
+  // レトリック
+  if (section.rhetoric && section.rhetoric.length > 0) {
+    lines.push("### レトリック");
+    for (const r of section.rhetoric) {
+      lines.push(`- **${r.type}**: 「${r.phrase}」 — ${r.reason || ""}`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+/** 複数楽曲を1つの Markdown にまとめる */
+export function formatSongsAsMarkdown(songs: SongWithDetails[]): string {
+  return songs.map((s) => formatSongAsMarkdown(s)).join("\n---\n\n");
+}
+
+// ============================================
+// JSON フォーマット
+// ============================================
+
+/** 単一楽曲の解析データを整形済み JSON 文字列に変換する */
+export function formatSongAsJSON(song: SongWithDetails): string {
+  // LLMに渡しやすいように、DBのIDやタイムスタンプを除外した簡潔な構造に変換
+  const exportData = {
+    title: song.title,
+    artist: song.artist,
+    metadata: {
+      sentiment_score: song.sentiment_score,
+      abstract_balance_score: song.abstract_balance_score,
+      colloquial_level: song.colloquial_level,
+      information_density: song.information_density,
+    },
+    sections: song.sections?.map((sec) => ({
+      section_type: sec.section_type,
+      total_mora: sec.total_mora,
+      density: {
+        noun: sec.noun_density,
+        verb: sec.verb_density,
+        adj: sec.adj_density,
+        adv: sec.adv_density,
+        content_word: sec.content_word_density,
+      },
+      lines: sec.lines?.map((line) => ({
+        number: line.line_number,
+        text: line.text,
+        prose: line.prose_text,
+        mora: line.mora_count,
+        end_vowel: line.end_vowel,
+      })),
+      rhetoric: sec.rhetoric?.map((r) => ({
+        type: r.type,
+        phrase: r.phrase,
+        reason: r.reason,
+      })),
+    })),
+  };
+
+  return JSON.stringify(exportData, null, 2);
+}
+
+/** 複数楽曲を1つの JSON 配列に変換する */
+export function formatSongsAsJSON(songs: SongWithDetails[]): string {
+  const exportArray = songs.map((song) => JSON.parse(formatSongAsJSON(song)));
+  return JSON.stringify(exportArray, null, 2);
+}
+
+// ============================================
+// クリップボード操作
+// ============================================
+
+/** テキストをクリップボードにコピーする */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    console.error("クリップボードへのコピーに失敗しました:", err);
+    // フォールバック: execCommand
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}

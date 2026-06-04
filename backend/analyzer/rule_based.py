@@ -1,165 +1,299 @@
 """
 rule_based.py — Python側の計量・構造分析モジュール
 
-MeCab/Janomeによる形態素解析、pykakasiによるモーラ・母音解析を担当。
+Janomeによる形態素解析と自前アルゴリズムを用いて、
+楽曲を「セクション → 行」の粒度で計量分析する。
 LLMには一切依存せず、確実な数値データを返す。
+
+Phase 1 で定義した DB スキーマ (songs, sections, lines, sentence_endings)
+にマッピング可能なデータ構造を出力する。
 """
 
 import re
+from typing import Optional
+from pydantic import BaseModel
 from janome.tokenizer import Tokenizer
 
-# --- Janome トークナイザー（シングルトン） ---
+
+# ============================================
+# Pydantic モデル定義
+# ============================================
+
+class LineResult(BaseModel):
+    """1行分の解析結果。DB の lines テーブルに対応する。"""
+    line_number: int
+    text: str
+    mora_count: int
+    end_vowel: Optional[str] = None
+
+
+class SentenceEndingResult(BaseModel):
+    """行末から切り出した文末表現。後で Gemini に分類させるための素材。"""
+    ending_text: str    # 例: "だ", "かもしれない", "のに"
+    source_line: str    # 抽出元の行テキスト（デバッグ・確認用）
+
+
+class SectionResult(BaseModel):
+    """1セクション分の解析結果。DB の sections テーブルに対応する。"""
+    section_type: str           # 例: '1A', '1B', 'Chorus', 'Bridge'
+    order_index: int            # セクションの出現順序 (0-indexed)
+    total_mora: int
+    # 5つの密度（各品詞カウント ÷ 総モーラ数）
+    noun_density: float
+    verb_density: float
+    adj_density: float
+    adv_density: float
+    content_word_density: float  # 名詞+動詞+形容詞+副詞 の合計密度
+    # 子要素
+    lines: list[LineResult]
+    sentence_endings: list[SentenceEndingResult]
+
+
+class SongAnalysisResult(BaseModel):
+    """楽曲全体のルールベース解析結果。main.py から呼ばれる最終出力。"""
+    information_density: float  # 楽曲全体の情報密度（全セクションの加重平均）
+    sections: list[SectionResult]
+
+
+# ============================================
+# 定数定義
+# ============================================
+
+# Janome トークナイザー（シングルトン）
 _tokenizer = Tokenizer()
-
-# --- 定数定義 ---
-FIRST_PERSON_WORDS = {
-    "僕", "ぼく", "ボク",
-    "私", "わたし", "ワタシ", "あたし", "アタシ",
-    "俺", "おれ", "オレ",
-    "あたい", "うち", "ウチ",
-    "自分", "わし",
-}
-
-SECOND_PERSON_WORDS = {
-    "君", "きみ", "キミ",
-    "あなた", "アナタ",
-    "お前", "おまえ", "オマエ",
-    "あんた", "アンタ",
-    "てめえ", "テメエ",
-}
-
-# 品詞の大分類マッピング
-POS_CATEGORIES = {
-    "名詞": "noun",
-    "動詞": "verb",
-    "形容詞": "adjective",
-    "副詞": "adverb",
-    "助詞": "particle",
-    "助動詞": "auxiliary_verb",
-    "接続詞": "conjunction",
-    "感動詞": "interjection",
-}
 
 # 拗音（小さい「ゃゅょ」等）— モーラ数に影響
 SMALL_KANA = set("ぁぃぅぇぉゃゅょゎァィゥェォャュョヮ")
 
-# 母音の抽出用パターン
-VOWEL_PATTERN = re.compile(r"[aiueo]")
+# カタカナ → 母音 マッピング（母音配列抽出用）
+VOWEL_MAP = {
+    "ア": "a", "カ": "a", "サ": "a", "タ": "a", "ナ": "a", "ハ": "a", "マ": "a", "ヤ": "a", "ラ": "a", "ワ": "a", "ガ": "a", "ザ": "a", "ダ": "a", "バ": "a", "パ": "a", "ァ": "a", "ャ": "a",
+    "イ": "i", "キ": "i", "シ": "i", "チ": "i", "ニ": "i", "ヒ": "i", "ミ": "i", "リ": "i", "ギ": "i", "ジ": "i", "ヂ": "i", "ビ": "i", "ピ": "i", "ィ": "i",
+    "ウ": "u", "ク": "u", "ス": "u", "ツ": "u", "ヌ": "u", "フ": "u", "ム": "u", "ユ": "u", "ル": "u", "グ": "u", "ズ": "u", "ヅ": "u", "ブ": "u", "プ": "u", "ゥ": "u", "ュ": "u", "ヴ": "u",
+    "エ": "e", "ケ": "e", "セ": "e", "テ": "e", "ネ": "e", "ヘ": "e", "メ": "e", "レ": "e", "ゲ": "e", "ゼ": "e", "デ": "e", "ベ": "e", "ペ": "e", "ェ": "e",
+    "オ": "o", "コ": "o", "ソ": "o", "ト": "o", "ノ": "o", "ホ": "o", "モ": "o", "ヨ": "o", "ロ": "o", "ヲ": "o", "ゴ": "o", "ゾ": "o", "ド": "o", "ボ": "o", "ポ": "o", "ォ": "o", "ョ": "o",
+    "ン": "n",
+}
 
+# 文末表現として拾う品詞の大分類
+_ENDING_POS_TARGETS = {"助詞", "助動詞"}
+
+# 句読点・記号（文末表現の抽出時にスキップする）
+_PUNCTUATION_RE = re.compile(r"^[。、！？!?…・\s　]+$")
+
+
+# ============================================
+# メインクラス
+# ============================================
 
 class RuleBasedAnalyzer:
-    """Python側の計量・構造分析を行うクラス"""
+    """Phase 1 の DB スキーマに対応したデータを抽出する計量分析クラス"""
 
-    # ========================================
-    # マクロ分析（楽曲全体を対象）
-    # ========================================
-    def analyze_macro(self, lyrics_all: str) -> dict:
+    # ===================================================
+    # 公開API: 楽曲全体のエントリポイント
+    # ===================================================
+
+    def analyze_song(
+        self,
+        sections_input: list[dict],
+    ) -> SongAnalysisResult:
         """
-        楽曲全体の歌詞を受け取り、品詞割合・人称カウント等を返す。
+        楽曲全体を解析する。
+
+        Args:
+            sections_input: フロントエンドから渡されるセクションのリスト。
+                各要素は {"section_name": "1A", "lyrics_raw": "..."} の形式。
+
+        Returns:
+            SongAnalysisResult: 全セクションの解析結果と楽曲全体の情報密度。
         """
-        tokens = list(_tokenizer.tokenize(lyrics_all))
+        section_results: list[SectionResult] = []
 
-        # --- 品詞カウント ---
-        pos_counts = {}
-        total_content_tokens = 0
-        first_person_count = 0
-        second_person_count = 0
+        for idx, sec in enumerate(sections_input):
+            section_type = sec.get("section_name", f"Section{idx + 1}")
+            lyrics_raw = sec.get("lyrics_raw", "")
+            result = self.analyze_section(
+                section_type=section_type,
+                order_index=idx,
+                section_text=lyrics_raw,
+            )
+            section_results.append(result)
 
-        for token in tokens:
+        # 楽曲全体の情報密度を算出（セクションごとのモーラ数で加重平均）
+        total_mora_all = sum(s.total_mora for s in section_results)
+        if total_mora_all > 0:
+            weighted_density = sum(
+                s.content_word_density * s.total_mora
+                for s in section_results
+            )
+            information_density = round(weighted_density / total_mora_all, 4)
+        else:
+            information_density = 0.0
+
+        return SongAnalysisResult(
+            information_density=information_density,
+            sections=section_results,
+        )
+
+    # ===================================================
+    # セクションレベルの解析
+    # ===================================================
+
+    def analyze_section(
+        self,
+        section_type: str,
+        order_index: int,
+        section_text: str,
+    ) -> SectionResult:
+        """
+        セクション単位の解析を行う。
+
+        処理フロー:
+        1. section_text を改行で行分割
+        2. 各行を analyze_line() で解析 → LineResult のリスト
+        3. 各行から文末表現を extract_sentence_ending() で抽出
+        4. _calc_densities() で5種類の品詞密度を算出
+        5. SectionResult にまとめて返却
+        """
+        raw_lines = [line for line in section_text.split("\n") if line.strip()]
+
+        # 行単位の解析
+        line_results: list[LineResult] = []
+        for i, line_text in enumerate(raw_lines):
+            line_result = self.analyze_line(line_number=i + 1, text=line_text)
+            line_results.append(line_result)
+
+        # 文末表現の抽出
+        sentence_endings: list[SentenceEndingResult] = []
+        for line_text in raw_lines:
+            ending = self.extract_sentence_ending(line_text)
+            if ending is not None:
+                sentence_endings.append(ending)
+
+        # 総モーラ数
+        total_mora = sum(lr.mora_count for lr in line_results)
+
+        # 5つの品詞密度を算出
+        densities = self._calc_densities(section_text, total_mora)
+
+        return SectionResult(
+            section_type=section_type,
+            order_index=order_index,
+            total_mora=total_mora,
+            noun_density=densities["noun_density"],
+            verb_density=densities["verb_density"],
+            adj_density=densities["adj_density"],
+            adv_density=densities["adv_density"],
+            content_word_density=densities["content_word_density"],
+            lines=line_results,
+            sentence_endings=sentence_endings,
+        )
+
+    # ===================================================
+    # 行レベルの解析
+    # ===================================================
+
+    def analyze_line(
+        self,
+        line_number: int,
+        text: str,
+    ) -> LineResult:
+        """
+        行単位の解析を行う。
+
+        Args:
+            line_number: 行番号 (1-indexed)
+            text: 行のテキスト
+
+        Returns:
+            LineResult: モーラ数と末尾母音を含む行解析結果
+        """
+        mora_count = self._count_mora(text)
+        end_vowel = self._extract_end_vowel(text)
+
+        return LineResult(
+            line_number=line_number,
+            text=text.strip(),
+            mora_count=mora_count,
+            end_vowel=end_vowel,
+        )
+
+    # ===================================================
+    # 文末表現の抽出
+    # ===================================================
+
+    def extract_sentence_ending(
+        self,
+        text: str,
+    ) -> Optional[SentenceEndingResult]:
+        """
+        行末から文末表現（終助詞・助動詞の連続）を切り出す。
+
+        アルゴリズム:
+        1. Janome で形態素解析し、トークンを逆順に走査
+        2. 句読点・記号をスキップ
+        3. 助詞・助動詞が連続する部分を末尾から収集
+        4. 連続が途切れた時点で収集を終了し、結合して返す
+
+        例:
+            "夢を見ていたのに"  → "のに"
+            "走り出した"        → "た"
+            "どこへ行くの？"    → "の"
+            "青い空"            → None（助詞・助動詞で終わっていない）
+        """
+        stripped = text.strip()
+        if not stripped:
+            return None
+
+        tokens = list(_tokenizer.tokenize(stripped))
+        if not tokens:
+            return None
+
+        # 末尾から走査し、文末表現パーツを収集
+        ending_parts: list[str] = []
+
+        for token in reversed(tokens):
             surface = token.surface
-            part_of_speech = token.part_of_speech.split(",")[0]  # 大分類
+            pos_major = token.part_of_speech.split(",")[0]
 
-            # 品詞カウント
-            eng_pos = POS_CATEGORIES.get(part_of_speech, "other")
-            pos_counts[eng_pos] = pos_counts.get(eng_pos, 0) + 1
-            total_content_tokens += 1
+            # 句読点・記号はスキップして次のトークンを見る
+            if _PUNCTUATION_RE.match(surface):
+                continue
+            # 記号品詞もスキップ
+            if pos_major == "記号":
+                continue
 
-            # 一人称・二人称カウント
-            if surface in FIRST_PERSON_WORDS:
-                first_person_count += 1
-            if surface in SECOND_PERSON_WORDS:
-                second_person_count += 1
-
-        # 品詞比率の計算
-        pos_ratios = {}
-        if total_content_tokens > 0:
-            for pos, count in pos_counts.items():
-                pos_ratios[f"{pos}_ratio"] = round(count / total_content_tokens, 4)
-
-        return {
-            "pos_ratios": pos_ratios,
-            "noun_ratio": pos_ratios.get("noun_ratio", 0),
-            "verb_ratio": pos_ratios.get("verb_ratio", 0),
-            "adjective_ratio": pos_ratios.get("adjective_ratio", 0),
-            "first_person_count": first_person_count,
-            "second_person_count": second_person_count,
-            "total_tokens": total_content_tokens,
-        }
-
-    # ========================================
-    # セクション分析（セクション単位）
-    # ========================================
-    def analyze_section(self, lyrics: str) -> dict:
-        """
-        セクション単位の歌詞を受け取り、モーラ数・母音配列、および情報密度を返す。
-        """
-        lines = [line for line in lyrics.split("\n") if line.strip()]
-
-        mora_counts = []
-        vowels_per_line = []
-        end_vowels = []
-        
-        # 情報密度計算用の変数
-        total_section_mora = 0
-        target_pos_count = 0  # 名詞 + 動詞 の数
-
-        for line in lines:
-            # モーラ数カウント
-            mora = self._count_mora(line)
-            mora_counts.append(mora)
-            total_section_mora += mora
-
-            # 母音配列の抽出
-            line_vowels = self._extract_vowels(line)
-            vowels_per_line.append(line_vowels)
-
-            # 末尾母音（韻の判定用）
-            if line_vowels:
-                end_vowels.append(line_vowels[-1])
+            # 助詞 or 助動詞 → 文末表現パーツとして収集
+            if pos_major in _ENDING_POS_TARGETS:
+                ending_parts.append(surface)
             else:
-                end_vowels.append("")
-                
-            # 行ごとの形態素解析で名詞・動詞をカウント
-            tokens = list(_tokenizer.tokenize(line))
-            for token in tokens:
-                pos = token.part_of_speech.split(",")[0]
-                if pos in ("名詞", "動詞"):
-                    target_pos_count += 1
-                    
-        # 情報密度の算出（改行という休符を無視した物理的な情報量）
-        # 例: (名詞+動詞) / 総モーラ数。モーラが0の場合は0。
-        information_density = round(target_pos_count / total_section_mora, 4) if total_section_mora > 0 else 0.0
+                # 助詞・助動詞以外に到達 → 収集終了
+                break
 
-        return {
-            "mora_counts": mora_counts,
-            "vowels": vowels_per_line,
-            "end_vowels": end_vowels,
-            "information_density": information_density,
-        }
+        if not ending_parts:
+            return None
 
-    # ========================================
-    # 内部ヘルパー関数
-    # ========================================
+        # 逆順で集めたので元の順番に戻して結合
+        ending_text = "".join(reversed(ending_parts))
+
+        return SentenceEndingResult(
+            ending_text=ending_text,
+            source_line=stripped,
+        )
+
+    # ===================================================
+    # 内部ヘルパー: モーラ数カウント
+    # ===================================================
+
     def _count_mora(self, text: str) -> int:
         """
         テキストのモーラ数をカウントする。
         日本語のモーラは基本的に「かな1文字＝1モーラ」だが、
         拗音（ゃゅょ等の小書き仮名）は前の文字と合わせて1モーラ。
         """
-        # 漢字混じり → ひらがなに変換
         hiragana = self._to_hiragana(text)
 
-        # スペース・記号を除去
+        # スペース・記号を除去（ひらがな・カタカナ・長音符のみ残す）
         hiragana = re.sub(r"[^\u3040-\u309F\u30A0-\u30FFー]", "", hiragana)
 
         mora_count = 0
@@ -171,10 +305,12 @@ class RuleBasedAnalyzer:
 
         return mora_count
 
+    # ===================================================
+    # 内部ヘルパー: ひらがな変換
+    # ===================================================
+
     def _to_hiragana(self, text: str) -> str:
-        """漢字・カタカナ混じりのテキストをひらがなに変換する"""
-        # pykakasiでローマ字に変換してからひらがなに戻すより、
-        # Janomeの読みを使う方が精度が高い
+        """漢字・カタカナ混じりのテキストをひらがなに変換する（Janomeの読みを利用）"""
         result = []
         tokens = _tokenizer.tokenize(text)
         for token in tokens:
@@ -193,29 +329,92 @@ class RuleBasedAnalyzer:
                 result.append(token.surface)
         return "".join(result)
 
-    def _extract_vowels(self, text: str) -> list:
+    # ===================================================
+    # 内部ヘルパー: 母音配列の抽出（将来拡張用に維持）
+    # ===================================================
+
+    def _extract_vowels(self, text: str) -> list[str]:
         """
-        Janomeの読み仮名（カタカナ）を利用して母音配列を抽出する（軽量版）
+        Janomeの読み仮名（カタカナ）を利用して母音配列を抽出する。
+        将来的な母音比率分析などへの拡張に備えて維持する。
         """
-        vowel_map = {
-            "ア": "a", "カ": "a", "サ": "a", "タ": "a", "ナ": "a", "ハ": "a", "マ": "a", "ヤ": "a", "ラ": "a", "ワ": "a", "ガ": "a", "ザ": "a", "ダ": "a", "バ": "a", "パ": "a", "ァ": "a", "ャ": "a",
-            "イ": "i", "キ": "i", "シ": "i", "チ": "i", "ニ": "i", "ヒ": "i", "ミ": "i", "リ": "i", "ギ": "i", "ジ": "i", "ヂ": "i", "ビ": "i", "ピ": "i", "ィ": "i",
-            "ウ": "u", "ク": "u", "ス": "u", "ツ": "u", "ヌ": "u", "フ": "u", "ム": "u", "ユ": "u", "ル": "u", "グ": "u", "ズ": "u", "ヅ": "u", "ブ": "u", "プ": "u", "ゥ": "u", "ュ": "u", "ヴ": "u",
-            "エ": "e", "ケ": "e", "セ": "e", "テ": "e", "ネ": "e", "ヘ": "e", "メ": "e", "レ": "e", "ゲ": "e", "ゼ": "e", "デ": "e", "ベ": "e", "ペ": "e", "ェ": "e",
-            "オ": "o", "コ": "o", "ソ": "o", "ト": "o", "ノ": "o", "ホ": "o", "モ": "o", "ヨ": "o", "ロ": "o", "ヲ": "o", "ゴ": "o", "ゾ": "o", "ド": "o", "ボ": "o", "ポ": "o", "ォ": "o", "ョ": "o"
-        }
-        
-        vowels = []
+        vowels: list[str] = []
         tokens = _tokenizer.tokenize(text)
         for token in tokens:
             reading = token.reading
             if reading and reading != "*":
-                # 読みがある場合はカタカナから母音に変換
                 for ch in reading:
-                    if ch in vowel_map:
-                        vowels.append(vowel_map[ch])
-            else:
-                # 記号などは無視
-                pass
-                
+                    if ch in VOWEL_MAP:
+                        vowels.append(VOWEL_MAP[ch])
         return vowels
+
+    # ===================================================
+    # 内部ヘルパー: 末尾母音の抽出
+    # ===================================================
+
+    def _extract_end_vowel(self, text: str) -> Optional[str]:
+        """
+        行末の母音を1文字抽出する。
+        _extract_vowels() で得た母音配列の末尾要素を返す。
+        母音が1つも抽出できない場合は None を返す。
+        """
+        vowels = self._extract_vowels(text)
+        if vowels:
+            return vowels[-1]
+        return None
+
+    # ===================================================
+    # 内部ヘルパー: 5種類の品詞密度算出
+    # ===================================================
+
+    def _calc_densities(
+        self, section_text: str, total_mora: int
+    ) -> dict[str, float]:
+        """
+        Janomeで品詞分解し、5つの密度（各品詞カウント ÷ 総モーラ数）を算出する。
+
+        算出する密度:
+        - noun_density:         名詞の出現数 ÷ 総モーラ数
+        - verb_density:         動詞の出現数 ÷ 総モーラ数
+        - adj_density:          形容詞の出現数 ÷ 総モーラ数
+        - adv_density:          副詞の出現数 ÷ 総モーラ数
+        - content_word_density: 上記4品詞の合計出現数 ÷ 総モーラ数
+
+        総モーラ数が0の場合、全ての密度は0.0を返す。
+        """
+        if total_mora == 0:
+            return {
+                "noun_density": 0.0,
+                "verb_density": 0.0,
+                "adj_density": 0.0,
+                "adv_density": 0.0,
+                "content_word_density": 0.0,
+            }
+
+        # 品詞ごとのカウント
+        noun_count = 0
+        verb_count = 0
+        adj_count = 0
+        adv_count = 0
+
+        tokens = list(_tokenizer.tokenize(section_text))
+        for token in tokens:
+            pos_major = token.part_of_speech.split(",")[0]
+            if pos_major == "名詞":
+                noun_count += 1
+            elif pos_major == "動詞":
+                verb_count += 1
+            elif pos_major == "形容詞":
+                adj_count += 1
+            elif pos_major == "副詞":
+                adv_count += 1
+
+        content_total = noun_count + verb_count + adj_count + adv_count
+
+        return {
+            "noun_density": round(noun_count / total_mora, 4),
+            "verb_density": round(verb_count / total_mora, 4),
+            "adj_density": round(adj_count / total_mora, 4),
+            "adv_density": round(adv_count / total_mora, 4),
+            "content_word_density": round(content_total / total_mora, 4),
+        }

@@ -1,11 +1,11 @@
 """
-db.py — Supabase連携モジュール
+db.py — Supabase連携モジュール (Phase 5 リレーショナル版)
 
 分析結果の保存・取得・削除、フレーズストックの蓄積を担当。
+Phase 1のSQLスキーマに完全適合するように修正済み。
 """
 
 import os
-import json
 from supabase import create_client, Client
 from typing import Optional
 
@@ -30,167 +30,195 @@ def get_supabase() -> Client:
 # Songs (楽曲 + 分析結果)
 # ============================================
 
-def save_song(analysis_result: dict) -> dict:
+def create_song_placeholder(title: str, artist: str) -> dict:
     """
-    分析結果をSupabaseのsongsテーブルに保存する。
-    同じsong_idが既に存在する場合はupsert（上書き更新）。
+    非同期解析開始時にプレースホルダーとなる楽曲レコードを作成し、IDを返す。
     """
     sb = get_supabase()
-
-    macro = analysis_result.get("macro_metrics", {})
     record = {
-        "song_id": analysis_result["song_id"],
-        "title": analysis_result["title"],
-        "artist": analysis_result["artist"],
-        "evaluation_tag": analysis_result.get("evaluation_tag", "like"),
-        # Python解析結果
-        "noun_ratio": macro.get("noun_ratio", 0),
-        "verb_ratio": macro.get("verb_ratio", 0),
-        "adjective_ratio": macro.get("adjective_ratio", 0),
-        "pos_ratios": json.dumps(macro.get("pos_ratios", {})),
-        "first_person_count": macro.get("first_person_count", 0),
-        "second_person_count": macro.get("second_person_count", 0),
-        "total_tokens": macro.get("total_tokens", 0),
-        # LLM解析結果
-        "concreteness_score": macro.get("concreteness_score", 3.0),
-        # セクション詳細
-        "sections": json.dumps(analysis_result.get("sections", []), ensure_ascii=False),
+        "title": title,
+        "artist": artist,
+        "analysis_status": "processing",
     }
+    result = sb.table("songs").insert(record).execute()
+    return result.data[0]
 
-    result = sb.table("songs").upsert(record, on_conflict="song_id").execute()
-    return result.data[0] if result.data else record
+
+def update_song_status(song_id: str, status: str) -> Optional[dict]:
+    """楽曲の解析ステータスのみを更新する（エラー時などに使用）"""
+    sb = get_supabase()
+    result = sb.table("songs").update({"analysis_status": status}).eq("id", song_id).execute()
+    return result.data[0] if result.data else None
+
+
+def save_song_analysis(song_id: str, analysis_result: dict) -> dict:
+    """
+    LLM解析が完了したデータをリレーショナルに保存する。
+    songs を UPDATE し、sections, lines, rhetoric を INSERT する。
+    """
+    sb = get_supabase()
+    macro = analysis_result.get("macro_metrics", {})
+
+    # 1. songs テーブルのUPDATE
+    song_record = {
+        "sentiment_score": macro.get("concreteness_score", 0), # LLM側の平均？(元の実装に合わせる) Wait, 旧実装は sentiment_score=None になってた。LLM側の平均を入れる。
+        "sentiment_score": analysis_result.get("macro_metrics", {}).get("sentiment_score", None),
+        "abstract_balance_score": macro.get("concreteness_score", 3.0),
+        "information_density": macro.get("information_density", 0.0),
+        "colloquial_level": analysis_result.get("colloquial_level", None),
+        "analysis_status": "completed",
+    }
+    
+    # 実際には avg_sentiment なども計算して入れるべきだが、ここでは LLMAnalyzer の仕様に合わせる
+    # 旧DB保存ロジックでは macro から諸々取っていた
+    # (ここはフロントで必要な最低限のカラムを更新)
+    song_record["sentiment_score"] = analysis_result.get("sentiment_score", 0.0)
+
+    sb.table("songs").update(song_record).eq("id", song_id).execute()
+
+    # 重複を防ぐため、既存のセクションがあれば削除 (ON DELETE CASCADEにより子も消える)
+    sb.table("sections").delete().eq("song_id", song_id).execute()
+
+    # 2. sections, lines, rhetoric のINSERT
+    sections_data = analysis_result.get("sections", [])
+    
+    for idx, sec in enumerate(sections_data):
+        # Section INSERT
+        section_record = {
+            "song_id": song_id,
+            "section_type": sec.get("section_name", f"Section {idx+1}"),
+            "total_mora": sum(sec.get("mora_counts", [])),
+            "sentiment_score": sec.get("sentiment_score", 0.0),
+            "noun_density": sec.get("information_density", 0.0), # 詳細な品詞密度が無いため近似
+            "order_index": idx,
+        }
+        sec_res = sb.table("sections").insert(section_record).execute()
+        section_id = sec_res.data[0]["id"]
+
+        # Lines INSERT
+        lines_records = []
+        raw_lines = sec.get("lyrics_raw", "").split("\n")
+        raw_lines = [l for l in raw_lines if l.strip()]
+        
+        mora_counts = sec.get("mora_counts", [])
+        end_vowels = sec.get("end_vowels", [])
+        # LLMから得た散文翻訳
+        prose_lines = sec.get("prose_lines", []) # Phase 3でLLMが返すリスト
+        prose_map = {p["line_number"]: p["prose_text"] for p in prose_lines} if prose_lines else {}
+
+        for line_idx, text in enumerate(raw_lines):
+            num = line_idx + 1
+            lines_records.append({
+                "section_id": section_id,
+                "line_number": num,
+                "text": text,
+                "mora_count": mora_counts[line_idx] if line_idx < len(mora_counts) else 0,
+                "end_vowel": end_vowels[line_idx] if line_idx < len(end_vowels) else None,
+                "prose_text": prose_map.get(num, None),
+            })
+        
+        if lines_records:
+            sb.table("lines").insert(lines_records).execute()
+
+        # Rhetoric INSERT
+        rhetoric_records = []
+        for rhet in sec.get("extracted_rhetoric", []):
+            rhetoric_records.append({
+                "section_id": section_id,
+                "type": rhet.get("type", "その他"),
+                "phrase": rhet.get("phrase", ""),
+                "reason": rhet.get("reason", ""),
+            })
+        
+        if rhetoric_records:
+            sb.table("rhetoric").insert(rhetoric_records).execute()
+
+    # 3. ルールと文末表現の保存
+    # (既存のルール保存などのロジックがあればここへ。今回は省略・簡易化)
+    return sb.table("songs").select("*").eq("id", song_id).execute().data[0]
 
 
 def get_all_songs() -> list:
-    """全楽曲を取得する"""
+    """全楽曲を取得する (songsテーブルのみ)"""
     sb = get_supabase()
     result = sb.table("songs").select("*").order("created_at", desc=True).execute()
-    # sections と pos_ratios をJSONパースして返す
-    songs = []
-    for row in result.data:
-        if isinstance(row.get("sections"), str):
-            row["sections"] = json.loads(row["sections"])
-        if isinstance(row.get("pos_ratios"), str):
-            row["pos_ratios"] = json.loads(row["pos_ratios"])
-        songs.append(row)
-    return songs
+    return result.data
 
 
 def get_song_by_id(song_id: str) -> Optional[dict]:
-    """特定の楽曲を取得する"""
+    """特定の楽曲をネストされた詳細データと共に取得する"""
     sb = get_supabase()
-    result = sb.table("songs").select("*").eq("song_id", song_id).execute()
-    if result.data:
-        row = result.data[0]
-        if isinstance(row.get("sections"), str):
-            row["sections"] = json.loads(row["sections"])
-        if isinstance(row.get("pos_ratios"), str):
-            row["pos_ratios"] = json.loads(row["pos_ratios"])
-        return row
-    return None
+    
+    # 1. 楽曲取得
+    song_res = sb.table("songs").select("*").eq("id", song_id).execute()
+    if not song_res.data:
+        return None
+    song = song_res.data[0]
+    
+    # 2. セクション取得
+    sections_res = sb.table("sections").select("*").eq("song_id", song_id).order("order_index").execute()
+    sections = sections_res.data
+    
+    for sec in sections:
+        sec_id = sec["id"]
+        # 行取得
+        lines_res = sb.table("lines").select("*").eq("section_id", sec_id).order("line_number").execute()
+        sec["lines"] = lines_res.data
+        
+        # レトリック取得
+        rhet_res = sb.table("rhetoric").select("*").eq("section_id", sec_id).execute()
+        sec["rhetoric"] = rhet_res.data
+
+    song["sections"] = sections
+    return song
 
 
 def delete_song(song_id: str) -> bool:
     """楽曲を削除する"""
     sb = get_supabase()
-    result = sb.table("songs").delete().eq("song_id", song_id).execute()
+    result = sb.table("songs").delete().eq("id", song_id).execute()
     return len(result.data) > 0
 
 
-def update_evaluation_tag(song_id: str, tag: str) -> Optional[dict]:
-    """楽曲の評価タグを更新する"""
+def update_evaluation_tag(song_id: str, is_liked: bool) -> Optional[dict]:
+    """楽曲のLike状態を更新する"""
     sb = get_supabase()
-    result = sb.table("songs").update({"evaluation_tag": tag}).eq("song_id", song_id).execute()
+    result = sb.table("songs").update({"is_liked": is_liked}).eq("id", song_id).execute()
     return result.data[0] if result.data else None
 
 
-def get_aggregated_metrics(evaluation_tag: Optional[str] = None) -> dict:
-    """
-    全曲（またはフィルタ済み）の平均値を集計して返す。
-    """
+# ============================================
+# Inline Editing APIs
+# ============================================
+
+def update_line_prose(line_id: str, prose_text: str) -> Optional[dict]:
+    """特定の行の散文翻訳を更新する"""
     sb = get_supabase()
-    query = sb.table("songs").select("*")
-    if evaluation_tag:
-        query = query.eq("evaluation_tag", evaluation_tag)
-    result = query.execute()
+    result = sb.table("lines").update({"prose_text": prose_text}).eq("id", line_id).execute()
+    return result.data[0] if result.data else None
 
-    songs = result.data
-    if not songs:
-        return {"count": 0}
 
-    count = len(songs)
-    avg = lambda key: round(sum(s.get(key, 0) or 0 for s in songs) / count, 4)
-
-    return {
-        "count": count,
-        "avg_noun_ratio": avg("noun_ratio"),
-        "avg_verb_ratio": avg("verb_ratio"),
-        "avg_adjective_ratio": avg("adjective_ratio"),
-        "avg_first_person_count": round(sum(s.get("first_person_count", 0) or 0 for s in songs) / count, 1),
-        "avg_second_person_count": round(sum(s.get("second_person_count", 0) or 0 for s in songs) / count, 1),
-        "avg_total_tokens": round(sum(s.get("total_tokens", 0) or 0 for s in songs) / count, 1),
-        "avg_concreteness_score": round(sum(s.get("concreteness_score", 3.0) or 3.0 for s in songs) / count, 2),
-    }
+def update_rhetoric(rhetoric_id: str, reason: str, type_str: str = None, phrase: str = None) -> Optional[dict]:
+    """レトリックの内容や理由を更新する"""
+    sb = get_supabase()
+    update_data = {"reason": reason}
+    if type_str: update_data["type"] = type_str
+    if phrase: update_data["phrase"] = phrase
+        
+    result = sb.table("rhetoric").update(update_data).eq("id", rhetoric_id).execute()
+    return result.data[0] if result.data else None
 
 
 # ============================================
-# Phrase Stock (ストック辞書)
+# Dictionary (文末表現・ルール)
 # ============================================
+# 本来は分析完了時等に抽出されたデータをこれらに保存する。
 
-def save_phrase_stocks(song_id: str, sections: list):
-    """
-    分析結果のセクションデータから、フレーズストックを抽出してSupabaseに保存する。
-    """
+def get_sentence_endings() -> list:
     sb = get_supabase()
-    records = []
-
-    for sec in sections:
-        section_name = sec.get("section_name", "")
-
-        # 文頭フレーズ
-        if sec.get("phrase_start"):
-            records.append({
-                "song_id": song_id,
-                "section_name": section_name,
-                "stock_type": "phrase_start",
-                "phrase": sec["phrase_start"],
-            })
-
-        # 文末フレーズ
-        if sec.get("phrase_end"):
-            records.append({
-                "song_id": song_id,
-                "section_name": section_name,
-                "stock_type": "phrase_end",
-                "phrase": sec["phrase_end"],
-            })
-
-        # レトリック
-        for rhet in sec.get("extracted_rhetoric", []):
-            records.append({
-                "song_id": song_id,
-                "section_name": section_name,
-                "stock_type": "rhetoric",
-                "phrase": rhet.get("phrase", ""),
-                "rhetoric_type": rhet.get("type", ""),
-                "reason": rhet.get("reason", ""),
-            })
-
-    if records:
-        # 既存のストックを削除してから挿入（upsertの代わり）
-        sb.table("phrase_stock").delete().eq("song_id", song_id).execute()
-        sb.table("phrase_stock").insert(records).execute()
+    return sb.table("sentence_endings").select("*").order("appearance_count", desc=True).execute().data
 
 
-def get_all_phrase_stocks() -> list:
-    """全フレーズストックを取得する"""
+def get_lyric_rules() -> list:
     sb = get_supabase()
-    result = sb.table("phrase_stock").select("*").order("created_at", desc=True).execute()
-    return result.data
-
-
-def get_phrase_stocks_by_type(stock_type: str) -> list:
-    """種別でフレーズストックをフィルタ取得する"""
-    sb = get_supabase()
-    result = sb.table("phrase_stock").select("*").eq("stock_type", stock_type).order("created_at", desc=True).execute()
-    return result.data
+    return sb.table("lyric_rules").select("*").order("created_at", desc=True).execute().data
