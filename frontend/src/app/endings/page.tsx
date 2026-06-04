@@ -29,7 +29,7 @@ export default function EndingsPage() {
     }
   };
 
-  const categories = Array.from(new Set(endings.map(e => e.category))).filter(Boolean);
+  const categories = Array.from(new Set(endings.map(e => e.category))).filter((c): c is string => Boolean(c));
   
   const filteredEndings = activeCategory 
     ? endings.filter(e => e.category === activeCategory)
