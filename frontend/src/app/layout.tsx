@@ -28,7 +28,7 @@ export default function RootLayout({
       lang="ja"
       className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="h-full flex bg-white text-[#37352f]">
+      <body className="h-full flex flex-col md:flex-row bg-white text-[#37352f]">
         <Sidebar />
         <main className="flex-1 flex flex-col h-full overflow-hidden">
           {children}
