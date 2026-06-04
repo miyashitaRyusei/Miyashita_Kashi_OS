@@ -2,6 +2,7 @@ fastapi
 uvicorn
 pydantic
 google-genai
-janome
+fugashi
+ipadic
 supabase
 python-dotenv

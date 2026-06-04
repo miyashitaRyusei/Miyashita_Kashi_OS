@@ -12,7 +12,8 @@ Phase 1 で定義した DB スキーマ (songs, sections, lines, sentence_ending
 import re
 from typing import Optional
 from pydantic import BaseModel
-from janome.tokenizer import Tokenizer
+import fugashi
+import ipadic
 
 
 # ============================================
@@ -59,8 +60,8 @@ class SongAnalysisResult(BaseModel):
 # 定数定義
 # ============================================
 
-# Janome トークナイザー（シングルトン）
-_tokenizer = Tokenizer()
+# Fugashi トークナイザー（シングルトン）
+_tokenizer = fugashi.GenericTagger(ipadic.MECAB_ARGS)
 
 # 拗音（小さい「ゃゅょ」等）— モーラ数に影響
 SMALL_KANA = set("ぁぃぅぇぉゃゅょゎァィゥェォャュョヮ")
@@ -245,7 +246,7 @@ class RuleBasedAnalyzer:
         if not stripped:
             return None
 
-        tokens = list(_tokenizer.tokenize(stripped))
+        tokens = _tokenizer(stripped)
         if not tokens:
             return None
 
@@ -254,7 +255,8 @@ class RuleBasedAnalyzer:
 
         for token in reversed(tokens):
             surface = token.surface
-            pos_major = token.part_of_speech.split(",")[0]
+            features = token.feature
+            pos_major = features[0]
 
             # 句読点・記号はスキップして次のトークンを見る
             if _PUNCTUATION_RE.match(surface):
@@ -312,9 +314,10 @@ class RuleBasedAnalyzer:
     def _to_hiragana(self, text: str) -> str:
         """漢字・カタカナ混じりのテキストをひらがなに変換する（Janomeの読みを利用）"""
         result = []
-        tokens = _tokenizer.tokenize(text)
+        tokens = _tokenizer(text)
         for token in tokens:
-            reading = token.reading
+            features = token.feature
+            reading = features[7] if len(features) > 7 else "*"
             if reading and reading != "*":
                 # カタカナ → ひらがな
                 hira = ""
@@ -339,9 +342,10 @@ class RuleBasedAnalyzer:
         将来的な母音比率分析などへの拡張に備えて維持する。
         """
         vowels: list[str] = []
-        tokens = _tokenizer.tokenize(text)
+        tokens = _tokenizer(text)
         for token in tokens:
-            reading = token.reading
+            features = token.feature
+            reading = features[7] if len(features) > 7 else "*"
             if reading and reading != "*":
                 for ch in reading:
                     if ch in VOWEL_MAP:
@@ -397,9 +401,10 @@ class RuleBasedAnalyzer:
         adj_count = 0
         adv_count = 0
 
-        tokens = list(_tokenizer.tokenize(section_text))
+        tokens = _tokenizer(section_text)
         for token in tokens:
-            pos_major = token.part_of_speech.split(",")[0]
+            features = token.feature
+            pos_major = features[0]
             if pos_major == "名詞":
                 noun_count += 1
             elif pos_major == "動詞":
