@@ -83,7 +83,11 @@ def save_song_analysis(song_id: str, analysis_result: dict) -> dict:
             "section_type": sec.get("section_name", f"Section {idx+1}"),
             "total_mora": sum(sec.get("mora_counts", [])),
             "sentiment_score": sec.get("sentiment_score", 0.0),
-            "noun_density": sec.get("information_density", 0.0), # 詳細な品詞密度が無いため近似
+            "noun_density": sec.get("noun_density", 0.0),
+            "verb_density": sec.get("verb_density", 0.0),
+            "adj_density": sec.get("adj_density", 0.0),
+            "adv_density": sec.get("adv_density", 0.0),
+            "content_word_density": sec.get("content_word_density", 0.0),
             "order_index": idx,
         }
         sec_res = sb.table("sections").insert(section_record).execute()
