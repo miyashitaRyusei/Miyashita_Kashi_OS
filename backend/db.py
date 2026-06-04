@@ -77,12 +77,14 @@ def save_song_analysis(song_id: str, analysis_result: dict) -> dict:
     sections_data = analysis_result.get("sections", [])
     
     for idx, sec in enumerate(sections_data):
-        # Section INSERT
         section_record = {
             "song_id": song_id,
             "section_type": sec.get("section_name", f"Section {idx+1}"),
             "total_mora": sum(sec.get("mora_counts", [])),
             "sentiment_score": sec.get("sentiment_score", 0.0),
+            "timeline": sec.get("timeline"),
+            "abstract_balance_score": sec.get("abstract_balance_score"),
+            "colloquial_level": sec.get("colloquial_level"),
             "noun_density": sec.get("noun_density", 0.0),
             "verb_density": sec.get("verb_density", 0.0),
             "adj_density": sec.get("adj_density", 0.0),

@@ -98,7 +98,10 @@ def process_analysis_task(song_id: str, title: str, artist: str, sections: List[
                 "content_word_density": py_sec_res.content_word_density,
                 "prose_lines": prose_lines_dict,
                 "extracted_rhetoric": rhetoric_dict,
-                "sentiment_score": 0.0,
+                "sentiment_score": llm_res.sentiment_score,
+                "timeline": llm_res.timeline,
+                "abstract_balance_score": llm_res.abstract_balance_score,
+                "colloquial_level": llm_res.colloquial_level,
             }
             section_results.append(merged_section)
 

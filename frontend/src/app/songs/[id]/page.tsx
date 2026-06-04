@@ -7,6 +7,7 @@ import type { SongWithDetails } from "@/lib/api";
 import { fetchSongById } from "@/lib/api";
 import { formatSongAsMarkdown, copyToClipboard } from "@/lib/export";
 import SectionAccordion from "@/components/song-detail/SectionAccordion";
+import SectionTrajectoryChart from "@/components/song-detail/SectionTrajectoryChart";
 
 // ============================================
 // 定数
@@ -297,6 +298,13 @@ export default function SongDetailPage() {
               />
             </div>
           </div>
+        )}
+
+        {/* =============================== */}
+        {/* セクション推移グラフ */}
+        {/* =============================== */}
+        {song.sections && song.sections.length > 0 && (
+          <SectionTrajectoryChart sections={song.sections} />
         )}
 
         {/* =============================== */}

@@ -21,6 +21,9 @@ export interface Section {
   section_type: SectionType;
   total_mora: number;
   sentiment_score: number | null;
+  timeline: string | null;
+  abstract_balance_score: number | null;
+  colloquial_level: 'colloquial' | 'intermediate' | 'poetic' | null;
   noun_density: number | null;
   verb_density: number | null;
   adj_density: number | null;

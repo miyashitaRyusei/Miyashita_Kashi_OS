@@ -42,6 +42,10 @@ class RhetoricResult(BaseModel):
 
 class SectionLLMResponse(BaseModel):
     """Gemini APIコール①の戻り値。セクション単位。"""
+    sentiment_score: float          # -1.0（絶望・悲哀）〜 1.0（歓喜・高揚）
+    timeline: str                   # "past" | "present" | "future" | "mixed"
+    abstract_balance_score: int     # 1〜4
+    colloquial_level: str           # "colloquial" | "intermediate" | "poetic"
     prose_lines: list[ProseLineResult]
     rhetoric: list[RhetoricResult]  # 最大3つ
 
@@ -77,6 +81,20 @@ class SongLLMResponse(BaseModel):
 
 SECTION_ANALYSIS_PROMPT = """あなたはプロの作詞アナリストです。
 以下のルールに厳密に従い、歌詞セクションを分析してください。
+
+## セクションのメタデータ推論ルール
+このセクション単体に限った以下の4つの指標を評価してください。
+- sentiment_score: セクションの感情極性を -1.0（絶望・悲哀）〜 1.0（歓喜・高揚）の小数で判定すること。
+- timeline: セクションが主に描いている時間軸を "past" | "present" | "future" | "mixed" から1つ選ぶこと。
+- abstract_balance_score: セクションの抽象/具体バランスを 1（抽象的）〜 4（具象的）の整数で判定すること。
+  - 1: ほぼ抽象的な概念・感情のみ
+  - 2: 抽象寄りだが一部に具体的な描写
+  - 3: 具体的な情景が多いが抽象も混在
+  - 4: ほぼ具象的な描写のみ
+- colloquial_level: セクションの言葉遣いの口語度を判定すること。
+  - "colloquial": 話し言葉に近い
+  - "intermediate": 話し言葉と書き言葉の中間
+  - "poetic": 文語・詩的表現が主体
 
 ## 散文翻訳ルール (prose_lines)
 - 元の歌詞の「1行」に対して、必ず「1行」の散文を出力すること。行数は完全に一致させること。
@@ -289,6 +307,10 @@ class LLMAnalyzer:
             for i, line in enumerate(lines)
         ]
         return SectionLLMResponse(
+            sentiment_score=0.0,
+            timeline="present",
+            abstract_balance_score=3,
+            colloquial_level="intermediate",
             prose_lines=mock_prose_lines,
             rhetoric=[],
         )
