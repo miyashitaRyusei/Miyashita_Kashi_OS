@@ -62,38 +62,40 @@ def process_analysis_task(song_id: str, title: str, artist: str, sections: List[
     try:
         all_lyrics = "\n".join([sec.lyrics_raw for sec in sections])
 
-        # マクロ分析 (Python / RuleBasedAnalyzer)
-        macro = rule_analyzer.analyze_macro(all_lyrics)
+        # Python側の分析（全セクション一括）
+        sections_for_py = [{"section_name": s.section_name, "lyrics_raw": s.lyrics_raw} for s in sections]
+        py_song_res = rule_analyzer.analyze_song(sections_for_py)
 
         section_results = []
-        concreteness_scores = []
-        information_densities = []
+        all_sentence_endings = []
 
         # 1. セクション別分析 (Python & LLM API①)
-        for sec in sections:
-            # Python側: 確実な計量処理
-            py_res = rule_analyzer.analyze_section(sec.lyrics_raw)
-            
+        for sec_input, py_sec_res in zip(sections, py_song_res.sections):
             # LLM側: 散文翻訳とレトリック抽出
-            llm_res = llm_analyzer.analyze_section_with_llm(sec.section_name, sec.lyrics_raw)
+            llm_res = llm_analyzer.analyze_section_with_llm(sec_input.section_name, sec_input.lyrics_raw)
             time.sleep(1.5)  # APIレートリミット回避
 
             # prose_linesを辞書（dict）のリストに変換
             prose_lines_dict = [p.model_dump() for p in llm_res.prose_lines]
             rhetoric_dict = [r.model_dump() for r in llm_res.rhetoric]
 
+            mora_counts = [line.mora_count for line in py_sec_res.lines]
+            end_vowels = [line.end_vowel for line in py_sec_res.lines]
+
+            for ending in py_sec_res.sentence_endings:
+                all_sentence_endings.append({"ending_text": ending.ending_text})
+
             merged_section = {
-                "section_name": sec.section_name,
-                "lyrics_raw": sec.lyrics_raw,
-                "mora_counts": py_res["mora_counts"],
-                "vowels": py_res["vowels"],
-                "end_vowels": py_res["end_vowels"],
-                "information_density": py_res.get("information_density", 0.0),
+                "section_name": py_sec_res.section_type,
+                "lyrics_raw": sec_input.lyrics_raw,
+                "mora_counts": mora_counts,
+                "end_vowels": end_vowels,
+                "information_density": py_sec_res.content_word_density,
                 "prose_lines": prose_lines_dict,
                 "extracted_rhetoric": rhetoric_dict,
+                "sentiment_score": 0.0,
             }
             section_results.append(merged_section)
-            information_densities.append(py_res.get("information_density", 0.0))
 
         # 2. 楽曲全体分析 (LLM API②)
         # 文末表現と既存ルールは本来DBから取得して渡す（今回は空配列でモック的に）
@@ -101,25 +103,16 @@ def process_analysis_task(song_id: str, title: str, artist: str, sections: List[
             title=title,
             artist=artist,
             full_lyrics=all_lyrics,
-            sentence_endings=[], 
+            sentence_endings=all_sentence_endings, 
             existing_rules=[]
         )
-
-        avg_info_density = sum(information_densities) / len(information_densities) if information_densities else 0.0
 
         final_response = {
             "song_id": song_id,
             "title": title,
             "artist": artist,
             "macro_metrics": {
-                "noun_ratio": macro["noun_ratio"],
-                "verb_ratio": macro["verb_ratio"],
-                "adjective_ratio": macro["adjective_ratio"],
-                "pos_ratios": macro["pos_ratios"],
-                "first_person_count": macro["first_person_count"],
-                "second_person_count": macro["second_person_count"],
-                "total_tokens": macro["total_tokens"],
-                "information_density": round(avg_info_density, 4),
+                "information_density": py_song_res.information_density,
                 "concreteness_score": song_llm_res.abstract_balance_score,
                 "sentiment_score": song_llm_res.sentiment_score,
             },
