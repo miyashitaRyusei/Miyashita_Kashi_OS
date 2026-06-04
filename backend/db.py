@@ -130,30 +130,28 @@ def save_song_analysis(song_id: str, analysis_result: dict) -> dict:
     # 3. ルールと文末表現の保存
     # 辞書データ (Sentence Endings)
     endings_data = analysis_result.get("ending_classifications", [])
+    endings_records = []
     for ending in endings_data:
         text = ending.get("ending_text")
         category = ending.get("category")
         if not text:
             continue
-        # 既存の文末表現かチェック
-        exist_res = sb.table("sentence_endings").select("*").eq("ending_text", text).execute()
-        if exist_res.data:
-            existing = exist_res.data[0]
-            new_count = existing.get("appearance_count", 0) + 1
-            sb.table("sentence_endings").update({"appearance_count": new_count}).eq("id", existing["id"]).execute()
-        else:
-            sb.table("sentence_endings").insert({
-                "ending_text": text,
-                "category": category,
-                "appearance_count": 1,
-                "examples": []
-            }).execute()
+        endings_records.append({
+            "song_id": song_id,
+            "ending_text": text,
+            "category": category,
+            "appearance_count": 1,
+            "examples": []
+        })
+    if endings_records:
+        sb.table("sentence_endings").insert(endings_records).execute()
 
     # 作詞ルールブック (Lyric Rules)
     rules_data = analysis_result.get("extracted_rules", [])
     rules_records = []
     for rule in rules_data:
         rules_records.append({
+            "song_id": song_id,
             "rule_name": rule.get("rule_name", ""),
             "is_novel": rule.get("is_novel", False),
             "examples": rule.get("examples", [])
@@ -245,7 +243,27 @@ def update_rhetoric(rhetoric_id: str, reason: str, type_str: str = None, phrase:
 
 def get_sentence_endings() -> list:
     sb = get_supabase()
-    return sb.table("sentence_endings").select("*").order("appearance_count", desc=True).execute().data
+    raw_data = sb.table("sentence_endings").select("*").execute().data
+    
+    # 楽曲ごとに保存された同一の文末表現を Python 側で集計する
+    aggregated = {}
+    for row in raw_data:
+        text = row["ending_text"]
+        if text not in aggregated:
+            aggregated[text] = {
+                "id": row["id"],
+                "ending_text": text,
+                "category": row.get("category"),
+                "appearance_count": 0,
+                "examples": []
+            }
+        aggregated[text]["appearance_count"] += row.get("appearance_count", 1)
+        if row.get("examples"):
+            aggregated[text]["examples"].extend(row["examples"])
+            
+    # 出現回数で降順ソート
+    sorted_endings = sorted(aggregated.values(), key=lambda x: x["appearance_count"], reverse=True)
+    return sorted_endings
 
 
 def get_lyric_rules() -> list:
