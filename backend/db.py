@@ -159,7 +159,8 @@ def save_song_analysis(song_id: str, analysis_result: dict) -> dict:
         rules_records.append({
             "song_id": song_id,
             "rule_name": rule.get("rule_name", ""),
-            "is_novel": rule.get("is_novel", False),
+            "description": rule.get("description", ""),
+            "tag": rule.get("tag", "その他"),
             "examples": rule.get("examples", [])
         })
     if rules_records:

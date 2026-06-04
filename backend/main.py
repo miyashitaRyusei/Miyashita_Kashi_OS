@@ -111,8 +111,7 @@ def process_analysis_task(song_id: str, title: str, artist: str, sections: List[
             title=title,
             artist=artist,
             full_lyrics=all_lyrics,
-            sentence_endings=all_sentence_endings, 
-            existing_rules=[]
+            sentence_endings=all_sentence_endings
         )
 
         # 4. 全体の統合とDB保存

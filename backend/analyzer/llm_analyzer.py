@@ -60,9 +60,10 @@ class EndingClassification(BaseModel):
 
 class ExtractedRule(BaseModel):
     """楽曲から抽出された「真似できる作詞ルール」。"""
-    rule_name: str          # ルール名（例: "サビ前の体言止め連打"）
+    rule_name: str          # キャッチーで短いタイトル
+    description: str        # テクニックの詳細な解説や作詞における効果
+    tag: str                # 指定された6つのカテゴリから1つ
     examples: list[str]     # 根拠フレーズのリスト
-    is_novel: bool          # 既存ルール一覧に無い完全新規ルールか
 
 
 class SongLLMResponse(BaseModel):
@@ -139,11 +140,10 @@ SONG_ANALYSIS_PROMPT = """あなたはプロの作詞アナリストです。
 ## 作詞ルールの抽出ルール (extracted_rules)
 - この楽曲から「他の作詞でも真似できる具体的なテクニック」をルールとして抽出すること。
 - 各ルールには根拠となるフレーズ（examples）を必ず1つ以上添えること。
-- 以下の「既存ルール一覧」を参照し、意味的に同じルールが既にある場合は is_novel=false、完全に新しいルールの場合は is_novel=true とすること。
-- 既存ルール一覧が空の場合は、全てのルールを is_novel=true とすること。
-
-【既存ルール一覧】:
-{existing_rules_json}
+- rule_name: パッと見で把握できるキャッチーで短いタイトル（例：「宇宙スケールのメタファー」）とすること。
+- description: そのテクニックの解説や作詞における効果（例：「個人的な感情の深さを、星や宇宙という広大なスケールと対比させて表現する」）を記述すること。
+- tag: 以下の6つのカテゴリから最も適切なものを必ず1つ選ぶこと。
+  ["言葉選び・レトリック", "構成・展開", "視点・アプローチ", "感情・情景描写", "リズム・響き", "その他"]
 
 ---
 【楽曲タイトル】: {title}
@@ -230,7 +230,6 @@ class LLMAnalyzer:
         artist: str,
         full_lyrics: str,
         sentence_endings: list[dict],
-        existing_rules: list[dict],
     ) -> SongLLMResponse:
         """
         楽曲全体のLLM分析を行う。
@@ -241,8 +240,6 @@ class LLMAnalyzer:
             full_lyrics: 全歌詞テキスト
             sentence_endings: Phase 2で抽出された文末表現のリスト
                 [{"ending_text": "のに", "source_line": "..."}, ...]
-            existing_rules: DBに保存済みの作詞ルール一覧
-                [{"rule_name": "..."}, ...]
 
         Returns:
             SongLLMResponse: メタデータ・文末分類・ルール抽出の結果
@@ -259,21 +256,11 @@ class LLMAnalyzer:
             endings_for_prompt, ensure_ascii=False, indent=2
         )
 
-        # 既存ルール一覧をJSON文字列化
-        rules_for_prompt = [
-            {"rule_name": r["rule_name"]}
-            for r in existing_rules
-        ]
-        existing_rules_json = json.dumps(
-            rules_for_prompt, ensure_ascii=False, indent=2
-        ) if rules_for_prompt else "（まだ登録されたルールはありません）"
-
         prompt = SONG_ANALYSIS_PROMPT.format(
             title=title,
             artist=artist,
             full_lyrics=full_lyrics,
             sentence_endings_json=sentence_endings_json,
-            existing_rules_json=existing_rules_json,
         )
 
         try:

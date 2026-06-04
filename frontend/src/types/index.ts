@@ -56,7 +56,8 @@ export interface SentenceEnding {
 export interface LyricRule {
   id: string;
   rule_name: string;
-  is_novel: boolean;
+  description: string | null;
+  tag: string | null;
   examples: string[] | null;
   created_at: string;
 }

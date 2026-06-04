@@ -19,14 +19,18 @@ export default function RulesPage() {
     setLoading(true);
     try {
       const data = await fetchLyricRules();
-      // NEWが先に来るようにソート
-      setRules(data.sort((a, b) => (a.is_novel === b.is_novel ? 0 : a.is_novel ? -1 : 1)));
+      setRules(data);
     } catch (err) {
       console.error("ルールの取得に失敗:", err);
     } finally {
       setLoading(false);
     }
   };
+
+  const TAGS = ['すべて', '言葉選び・レトリック', '構成・展開', '視点・アプローチ', '感情・情景描写', 'リズム・響き', 'その他'];
+  const [activeTag, setActiveTag] = useState<string>('すべて');
+
+  const filteredRules = activeTag === 'すべて' ? rules : rules.filter(r => r.tag === activeTag);
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -41,12 +45,29 @@ export default function RulesPage() {
           </p>
         </div>
 
+        {/* タグフィルターバー */}
+        <div className="flex flex-wrap gap-2 mb-8">
+          {TAGS.map(tag => (
+            <button
+              key={tag}
+              onClick={() => setActiveTag(tag)}
+              className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors ${
+                activeTag === tag
+                  ? 'bg-[#37352f] text-white border border-[#37352f]'
+                  : 'bg-white text-[#787774] border border-[#e9e9e7] hover:border-[#d4d4d2] hover:bg-[#fbfbfa]'
+              }`}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+
         {loading ? (
           <div className="py-20">
             <LoadingSpinner />
           </div>
         ) : (
-          <RuleGallery rules={rules} />
+          <RuleGallery rules={filteredRules} />
         )}
       </div>
     </div>
