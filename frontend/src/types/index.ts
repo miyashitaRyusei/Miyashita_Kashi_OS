@@ -9,6 +9,7 @@ export interface Song {
   abstract_balance_score: number | null; // 旧: 具象度
   information_density: number | null;
   colloquial_level: 'colloquial' | 'intermediate' | 'poetic' | null;
+  timeline: string | null;
   analysis_status: 'processing' | 'completed' | 'error';
   is_liked: boolean;
   created_at: string;

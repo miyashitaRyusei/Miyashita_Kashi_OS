@@ -202,14 +202,27 @@ export default function SongDetailPage() {
             </div>
           </div>
 
-          {/* 時間軸 — timeline はまだSongに無いのでplaceholder */}
+          {/* 時間軸 */}
           <div className="border border-[#e9e9e7] rounded-lg p-4 hover:border-[#d4d4d2] transition-colors">
             <div className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider mb-2 flex items-center gap-1">
               <Clock size={10} />
               時間軸
             </div>
-            <div className="text-2xl font-bold text-[#d4d4d2]">—</div>
-            <div className="text-[11px] text-[#c4c4c2] mt-1">未解析</div>
+            {song.timeline ? (
+              <>
+                <div className="text-2xl font-bold text-[#37352f] flex items-center gap-2">
+                  {TIMELINE_LABELS[song.timeline]?.icon || "🕰️"}
+                  <span className="text-[18px]">
+                    {TIMELINE_LABELS[song.timeline]?.text || song.timeline}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-[#d4d4d2]">—</div>
+                <div className="text-[11px] text-[#c4c4c2] mt-1">未解析</div>
+              </>
+            )}
           </div>
 
           {/* 抽象/具体 */}
