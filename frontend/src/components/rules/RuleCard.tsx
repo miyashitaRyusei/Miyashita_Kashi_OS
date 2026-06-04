@@ -21,9 +21,7 @@ export default function RuleCard({ rule }: RuleCardProps) {
       </div>
       
       <div className="p-4 flex-1 flex flex-col">
-        <p className="text-[13px] text-[#787774] leading-relaxed mb-4">
-          {rule.description}
-        </p>
+
         
         <div className="mt-auto">
           <h4 className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider mb-2">
