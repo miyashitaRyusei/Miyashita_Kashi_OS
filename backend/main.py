@@ -91,6 +91,11 @@ def process_analysis_task(song_id: str, title: str, artist: str, sections: List[
                 "mora_counts": mora_counts,
                 "end_vowels": end_vowels,
                 "information_density": py_sec_res.content_word_density,
+                "noun_density": py_sec_res.noun_density,
+                "verb_density": py_sec_res.verb_density,
+                "adj_density": py_sec_res.adj_density,
+                "adv_density": py_sec_res.adv_density,
+                "content_word_density": py_sec_res.content_word_density,
                 "prose_lines": prose_lines_dict,
                 "extracted_rhetoric": rhetoric_dict,
                 "sentiment_score": 0.0,
@@ -107,6 +112,7 @@ def process_analysis_task(song_id: str, title: str, artist: str, sections: List[
             existing_rules=[]
         )
 
+        # 4. 全体の統合とDB保存
         final_response = {
             "song_id": song_id,
             "title": title,
@@ -117,10 +123,13 @@ def process_analysis_task(song_id: str, title: str, artist: str, sections: List[
                 "sentiment_score": song_llm_res.sentiment_score,
             },
             "colloquial_level": song_llm_res.colloquial_level,
+            "timeline": song_llm_res.timeline,
             "sections": section_results,
+            "ending_classifications": [e.model_dump() for e in song_llm_res.ending_classifications],
+            "extracted_rules": [r.model_dump() for r in song_llm_res.extracted_rules],
         }
 
-        # DBにリレーショナル形式で保存（完了ステータスへ更新）
+        # DB保存（ここでsongs, sections, lines, rhetoric, rules, endingsがINSERTされる）
         db.save_song_analysis(song_id, final_response)
         
     except Exception as e:

@@ -126,7 +126,41 @@ def save_song_analysis(song_id: str, analysis_result: dict) -> dict:
         if rhetoric_records:
             sb.table("rhetoric").insert(rhetoric_records).execute()
 
-    # 3. 最後にステータスをcompletedにして、フロントエンドへのポーリング完了を通知
+    # 3. ルールと文末表現の保存
+    # 辞書データ (Sentence Endings)
+    endings_data = analysis_result.get("ending_classifications", [])
+    for ending in endings_data:
+        text = ending.get("ending_text")
+        category = ending.get("category")
+        if not text:
+            continue
+        # 既存の文末表現かチェック
+        exist_res = sb.table("sentence_endings").select("*").eq("ending_text", text).execute()
+        if exist_res.data:
+            existing = exist_res.data[0]
+            new_count = existing.get("appearance_count", 0) + 1
+            sb.table("sentence_endings").update({"appearance_count": new_count}).eq("id", existing["id"]).execute()
+        else:
+            sb.table("sentence_endings").insert({
+                "ending_text": text,
+                "category": category,
+                "appearance_count": 1,
+                "examples": []
+            }).execute()
+
+    # 作詞ルールブック (Lyric Rules)
+    rules_data = analysis_result.get("extracted_rules", [])
+    rules_records = []
+    for rule in rules_data:
+        rules_records.append({
+            "rule_name": rule.get("rule_name", ""),
+            "is_novel": rule.get("is_novel", False),
+            "examples": rule.get("examples", [])
+        })
+    if rules_records:
+        sb.table("lyric_rules").insert(rules_records).execute()
+
+    # 4. 最後にステータスをcompletedにして、フロントエンドへのポーリング完了を通知
     sb.table("songs").update({"analysis_status": "completed"}).eq("id", song_id).execute()
 
     return sb.table("songs").select("*").eq("id", song_id).execute().data[0]
