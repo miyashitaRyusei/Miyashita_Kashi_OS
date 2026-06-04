@@ -69,10 +69,10 @@ export default function DensityRadarChart({ section }: DensityRadarChartProps) {
               fontSize: "12px",
               padding: "8px 12px",
             }}
-            formatter={(value: number) => [
-              `${(value * 100).toFixed(1)}%`,
-              "密度",
-            ]}
+            formatter={(value: any) => {
+              const numValue = typeof value === 'number' ? value : 0;
+              return [`${(numValue * 100).toFixed(1)}%`, "密度"];
+            }}
           />
           <Radar
             dataKey="value"
