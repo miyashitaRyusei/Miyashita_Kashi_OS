@@ -70,9 +70,11 @@ export default function DashboardPage() {
       // テキスト検索（タイトル + アーティスト）
       if (filters.artist) {
         const query = filters.artist.toLowerCase();
+        const artist = song.artist || "";
+        const title = song.title || "";
         if (
-          !song.artist.toLowerCase().includes(query) &&
-          !song.title.toLowerCase().includes(query)
+          !artist.toLowerCase().includes(query) &&
+          !title.toLowerCase().includes(query)
         ) {
           return false;
         }
@@ -100,13 +102,13 @@ export default function DashboardPage() {
     return filteredSongs
       .filter(
         (s) =>
-          s.abstract_balance_score !== null &&
-          s.information_density !== null
+          typeof s.abstract_balance_score === 'number' &&
+          typeof s.information_density === 'number'
       )
       .map((s) => ({
         id: s.id,
-        name: s.title,
-        artist: s.artist,
+        name: s.title || "不明",
+        artist: s.artist || "不明",
         x: s.abstract_balance_score ?? 2,
         y: s.information_density ?? 0,
         isLiked: s.is_liked,

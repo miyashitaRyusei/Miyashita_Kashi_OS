@@ -57,8 +57,8 @@ export default function SongDataGrid({
     onSelectionChange(next);
   };
 
-  const sentimentDisplay = (score: number | null) => {
-    if (score === null) return { text: "—", cls: "text-[#d4d4d2]" };
+  const sentimentDisplay = (score: number | null | undefined) => {
+    if (typeof score !== 'number') return { text: "—", cls: "text-[#d4d4d2]" };
     const sign = score > 0 ? "+" : "";
     const color =
       score > 0.3
@@ -97,12 +97,12 @@ export default function SongDataGrid({
         </thead>
         <tbody>
           {songs.length > 0 ? (
-            songs.map((song) => {
+            songs.map((song, i) => {
               const sentiment = sentimentDisplay(song.sentiment_score);
               return (
                 <tr
-                  key={song.id}
-                  onClick={() => router.push(`/songs/${song.id}`)}
+                  key={song.id || `song-${i}`}
+                  onClick={() => song.id && router.push(`/songs/${song.id}`)}
                   className="border-b border-[#e9e9e7] last:border-0 hover:bg-[#fbfbfa] transition-colors group cursor-pointer"
                 >
                   {/* チェックボックス */}
@@ -112,8 +112,8 @@ export default function SongDataGrid({
                   >
                     <input
                       type="checkbox"
-                      checked={selectedIds.has(song.id)}
-                      onChange={() => handleSelectOne(song.id)}
+                      checked={song.id ? selectedIds.has(song.id) : false}
+                      onChange={() => song.id && handleSelectOne(song.id)}
                       className="rounded border-[#d4d4d2] cursor-pointer accent-[#37352f]"
                     />
                   </td>
@@ -122,12 +122,12 @@ export default function SongDataGrid({
                   <td className="px-3 py-2.5 font-medium">
                     <div className="flex items-center gap-2">
                       <Music size={14} className="text-[#d4d4d2] flex-shrink-0" />
-                      <span className="truncate max-w-[200px]">{song.title}</span>
+                      <span className="truncate max-w-[200px]">{song.title || "不明"}</span>
                     </div>
                   </td>
 
                   {/* アーティスト */}
-                  <td className="px-3 py-2.5 text-[#787774]">{song.artist}</td>
+                  <td className="px-3 py-2.5 text-[#787774]">{song.artist || "不明"}</td>
 
                   {/* 感情極性 */}
                   <td className="px-3 py-2.5 text-center">
@@ -136,7 +136,7 @@ export default function SongDataGrid({
 
                   {/* 抽象/具体 ドットインジケーター */}
                   <td className="px-3 py-2.5 text-center">
-                    {song.abstract_balance_score !== null ? (
+                    {typeof song.abstract_balance_score === 'number' ? (
                       <div className="flex items-center justify-center gap-0.5">
                         {[1, 2, 3, 4].map((dot) => (
                           <div
@@ -173,7 +173,7 @@ export default function SongDataGrid({
 
                   {/* 情報密度 */}
                   <td className="px-3 py-2.5 text-center font-mono text-[12px]">
-                    {song.information_density !== null
+                    {typeof song.information_density === 'number'
                       ? song.information_density.toFixed(4)
                       : "—"}
                   </td>
