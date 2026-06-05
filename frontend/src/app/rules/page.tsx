@@ -10,15 +10,19 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 export default function RulesPage() {
   const [rules, setRules] = useState<LyricRule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [likeFilter, setLikeFilter] = useState<'all' | 'liked' | 'unliked'>('all');
 
   useEffect(() => {
-    loadRules();
-  }, []);
+    let isLikedParam: boolean | undefined = undefined;
+    if (likeFilter === 'liked') isLikedParam = true;
+    if (likeFilter === 'unliked') isLikedParam = false;
+    loadRules(isLikedParam);
+  }, [likeFilter]);
 
-  const loadRules = async () => {
+  const loadRules = async (isLiked?: boolean) => {
     setLoading(true);
     try {
-      const data = await fetchLyricRules();
+      const data = await fetchLyricRules(isLiked);
       setRules(data);
     } catch (err) {
       console.error("ルールの取得に失敗:", err);
@@ -35,14 +39,27 @@ export default function RulesPage() {
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-6xl mx-auto px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-[#37352f] flex items-center gap-2.5">
-            <BookOpen size={22} className="text-[#787774]" />
-            作詞ルールブック
-          </h1>
-          <p className="text-[13px] text-[#9ca3af] mt-1">
-            楽曲解析から抽出された、作詞における規則性やレトリックの知見。
-          </p>
+        <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-[#37352f] flex items-center gap-2.5">
+              <BookOpen size={22} className="text-[#787774]" />
+              作詞ルールブック
+            </h1>
+            <p className="text-[13px] text-[#9ca3af] mt-1">
+              楽曲解析から抽出された、作詞における規則性やレトリックの知見。
+            </p>
+          </div>
+          
+          {/* Likeフィルター */}
+          <select
+            value={likeFilter}
+            onChange={(e) => setLikeFilter(e.target.value as any)}
+            className="px-3 py-2 text-[13px] font-medium rounded-lg border border-[#e9e9e7] bg-white text-[#37352f] focus:outline-none focus:ring-2 focus:ring-[#e9e9e7] cursor-pointer self-start"
+          >
+            <option value="all">すべての曲</option>
+            <option value="liked">❤️ Likeした曲のみ</option>
+            <option value="unliked">🤍 Likeしてない曲</option>
+          </select>
         </div>
 
         {/* タグフィルターバー */}

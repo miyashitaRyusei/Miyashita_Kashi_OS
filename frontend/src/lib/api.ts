@@ -148,9 +148,14 @@ export async function updateRhetoricContent(rhetoricId: string, reason: string):
 
 /** 文末表現を取得する（カテゴリフィルタ対応） */
 export async function fetchSentenceEndings(
-  category?: string
+  category?: string,
+  isLiked?: boolean
 ): Promise<SentenceEnding[]> {
-  const query = category ? `?category=${encodeURIComponent(category)}` : "";
+  const params = new URLSearchParams();
+  if (category) params.append("category", category);
+  if (isLiked !== undefined) params.append("is_liked", String(isLiked));
+  const query = params.toString() ? `?${params.toString()}` : "";
+  
   const data = await fetchAPI<{ endings: SentenceEnding[] }>(
     `/api/sentence-endings${query}`
   );
@@ -162,8 +167,9 @@ export async function fetchSentenceEndings(
 // ============================================
 
 /** 作詞ルールを取得する */
-export async function fetchLyricRules(): Promise<LyricRule[]> {
-  const data = await fetchAPI<{ rules: LyricRule[] }>("/api/lyric-rules");
+export async function fetchLyricRules(isLiked?: boolean): Promise<LyricRule[]> {
+  const query = isLiked !== undefined ? `?is_liked=${isLiked}` : "";
+  const data = await fetchAPI<{ rules: LyricRule[] }>(`/api/lyric-rules${query}`);
   return data.rules;
 }
 
@@ -172,7 +178,8 @@ export async function fetchLyricRules(): Promise<LyricRule[]> {
 // ============================================
 
 /** 書き出し・書き終わりのフレーズを取得する */
-export async function fetchLyricPhrases(): Promise<LyricPhrase[]> {
-  const data = await fetchAPI<{ phrases: LyricPhrase[] }>("/api/phrases");
+export async function fetchLyricPhrases(isLiked?: boolean): Promise<LyricPhrase[]> {
+  const query = isLiked !== undefined ? `?is_liked=${isLiked}` : "";
+  const data = await fetchAPI<{ phrases: LyricPhrase[] }>(`/api/phrases${query}`);
   return data.phrases;
 }

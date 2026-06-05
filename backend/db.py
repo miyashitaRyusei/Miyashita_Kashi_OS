@@ -176,7 +176,7 @@ def save_song_analysis(song_id: str, analysis_result: dict) -> dict:
             "text": pc.get("text", ""),
             "category": pc.get("category", "その他"),
             "appearance_count": 1,
-            "examples": []
+            "examples": pc.get("examples", [])
         })
     if phrase_records:
         sb.table("lyric_phrases").insert(phrase_records).execute()
@@ -263,9 +263,13 @@ def update_rhetoric(rhetoric_id: str, reason: str, type_str: str = None, phrase:
 # ============================================
 # 本来は分析完了時等に抽出されたデータをこれらに保存する。
 
-def get_sentence_endings() -> list:
+def get_sentence_endings(is_liked: Optional[bool] = None) -> list:
     sb = get_supabase()
-    raw_data = sb.table("sentence_endings").select("*").execute().data
+    query = sb.table("sentence_endings").select("*, songs!inner(is_liked)")
+    if is_liked is not None:
+        query = query.eq("songs.is_liked", is_liked)
+        
+    raw_data = query.execute().data
     
     # 楽曲ごとに保存された同一の文末表現を Python 側で集計する
     aggregated = {}
@@ -288,15 +292,22 @@ def get_sentence_endings() -> list:
     return sorted_endings
 
 
-def get_lyric_rules() -> list:
+def get_lyric_rules(is_liked: Optional[bool] = None) -> list:
     sb = get_supabase()
-    return sb.table("lyric_rules").select("*").order("created_at", desc=True).execute().data
+    query = sb.table("lyric_rules").select("*, songs!inner(is_liked)")
+    if is_liked is not None:
+        query = query.eq("songs.is_liked", is_liked)
+    return query.order("created_at", desc=True).execute().data
 
 
-def get_lyric_phrases() -> list:
+def get_lyric_phrases(is_liked: Optional[bool] = None) -> list:
     """全楽曲のフレーズを集計して返す"""
     sb = get_supabase()
-    data = sb.table("lyric_phrases").select("*").execute().data
+    query = sb.table("lyric_phrases").select("*, songs!inner(is_liked)")
+    if is_liked is not None:
+        query = query.eq("songs.is_liked", is_liked)
+    
+    data = query.execute().data
     
     aggregated = {}
     for row in data:

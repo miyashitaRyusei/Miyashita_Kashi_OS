@@ -123,6 +123,16 @@ def process_analysis_task(song_id: str, title: str, artist: str, sections: List[
             phrases=all_phrases
         )
 
+        # フレーズの抽出元行をマッピング
+        phrase_source_map = {(p["phrase_type"], p["text"]): p["source_line"] for p in all_phrases}
+        
+        phrase_classifications_dict = []
+        for p in song_llm_res.phrase_classifications:
+            p_dict = p.model_dump()
+            source = phrase_source_map.get((p.phrase_type, p.text))
+            p_dict["examples"] = [source] if source else []
+            phrase_classifications_dict.append(p_dict)
+
         # 4. 全体の統合とDB保存
         final_response = {
             "song_id": song_id,
@@ -137,7 +147,7 @@ def process_analysis_task(song_id: str, title: str, artist: str, sections: List[
             "timeline": song_llm_res.timeline,
             "sections": section_results,
             "ending_classifications": [e.model_dump() for e in song_llm_res.ending_classifications],
-            "phrase_classifications": [p.model_dump() for p in song_llm_res.phrase_classifications],
+            "phrase_classifications": phrase_classifications_dict,
             "extracted_rules": [r.model_dump() for r in song_llm_res.extracted_rules],
         }
 
@@ -273,27 +283,27 @@ async def update_rhetoric(rhetoric_id: str, body: RhetoricUpdate):
 # ============================================
 
 @app.get("/api/sentence-endings")
-async def get_sentence_endings_api():
+async def get_sentence_endings_api(is_liked: Optional[bool] = None):
     try:
-        return {"endings": db.get_sentence_endings()}
+        return {"endings": db.get_sentence_endings(is_liked)}
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/lyric-rules")
-async def get_lyric_rules_api():
+async def get_lyric_rules_api(is_liked: Optional[bool] = None):
     try:
-        return {"rules": db.get_lyric_rules()}
+        return {"rules": db.get_lyric_rules(is_liked)}
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/phrases")
-async def get_phrases_api():
+async def get_phrases_api(is_liked: Optional[bool] = None):
     try:
-        return {"phrases": db.get_lyric_phrases()}
+        return {"phrases": db.get_lyric_phrases(is_liked)}
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

@@ -15,15 +15,19 @@ export default function PhrasesPage() {
   const [loading, setLoading] = useState(true);
   const [activeType, setActiveType] = useState<'start' | 'end'>('start');
   const [activeCategory, setActiveCategory] = useState<string>('すべて');
+  const [likeFilter, setLikeFilter] = useState<'all' | 'liked' | 'unliked'>('all');
 
   useEffect(() => {
-    loadPhrases();
-  }, []);
+    let isLikedParam: boolean | undefined = undefined;
+    if (likeFilter === 'liked') isLikedParam = true;
+    if (likeFilter === 'unliked') isLikedParam = false;
+    loadPhrases(isLikedParam);
+  }, [likeFilter]);
 
-  const loadPhrases = async () => {
+  const loadPhrases = async (isLiked?: boolean) => {
     setLoading(true);
     try {
-      const data = await fetchLyricPhrases();
+      const data = await fetchLyricPhrases(isLiked);
       setPhrases(data);
     } catch (err) {
       console.error("フレーズの取得に失敗:", err);
@@ -61,28 +65,41 @@ export default function PhrasesPage() {
             </p>
           </div>
           
-          {/* 大トグル: 書き出し / 書き終わり */}
-          <div className="flex bg-[#efefed] p-1 rounded-lg self-start">
-            <button
-              onClick={() => handleTypeChange('start')}
-              className={`px-5 py-2 text-[13px] font-bold rounded-md transition-all ${
-                activeType === 'start'
-                  ? 'bg-white text-[#37352f] shadow-sm'
-                  : 'text-[#9ca3af] hover:text-[#787774]'
-              }`}
+          <div className="flex items-center gap-3 self-start">
+            {/* Likeフィルター */}
+            <select
+              value={likeFilter}
+              onChange={(e) => setLikeFilter(e.target.value as any)}
+              className="px-3 py-2 text-[13px] font-medium rounded-lg border border-[#e9e9e7] bg-white text-[#37352f] focus:outline-none focus:ring-2 focus:ring-[#e9e9e7] cursor-pointer"
             >
-              書き出し
-            </button>
-            <button
-              onClick={() => handleTypeChange('end')}
-              className={`px-5 py-2 text-[13px] font-bold rounded-md transition-all ${
-                activeType === 'end'
-                  ? 'bg-white text-[#37352f] shadow-sm'
-                  : 'text-[#9ca3af] hover:text-[#787774]'
-              }`}
-            >
-              書き終わり
-            </button>
+              <option value="all">すべての曲</option>
+              <option value="liked">❤️ Likeした曲のみ</option>
+              <option value="unliked">🤍 Likeしてない曲</option>
+            </select>
+
+            {/* 大トグル: 書き出し / 書き終わり */}
+            <div className="flex bg-[#efefed] p-1 rounded-lg">
+              <button
+                onClick={() => handleTypeChange('start')}
+                className={`px-5 py-2 text-[13px] font-bold rounded-md transition-all ${
+                  activeType === 'start'
+                    ? 'bg-white text-[#37352f] shadow-sm'
+                    : 'text-[#9ca3af] hover:text-[#787774]'
+                }`}
+              >
+                書き出し
+              </button>
+              <button
+                onClick={() => handleTypeChange('end')}
+                className={`px-5 py-2 text-[13px] font-bold rounded-md transition-all ${
+                  activeType === 'end'
+                    ? 'bg-white text-[#37352f] shadow-sm'
+                    : 'text-[#9ca3af] hover:text-[#787774]'
+                }`}
+              >
+                書き終わり
+              </button>
+            </div>
           </div>
         </div>
 
