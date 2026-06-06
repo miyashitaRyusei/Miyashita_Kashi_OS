@@ -279,8 +279,25 @@ async def update_rhetoric(rhetoric_id: str, body: RhetoricUpdate):
 
 
 # ============================================
-# その他の取得 API
+# その他の取得・更新 API
 # ============================================
+
+class DictionaryPreferenceRequest(BaseModel):
+    item_type: str
+    item_key: str
+    is_favorite: bool
+    is_deleted: bool
+
+@app.post("/api/dictionary-preferences")
+async def update_dictionary_preference(req: DictionaryPreferenceRequest):
+    """辞書アイテムのお気に入り・削除状態を更新する"""
+    try:
+        db.set_dictionary_preference(req.item_type, req.item_key, req.is_favorite, req.is_deleted)
+        return {"success": True}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/sentence-endings")
 async def get_sentence_endings_api(is_liked: Optional[bool] = None):

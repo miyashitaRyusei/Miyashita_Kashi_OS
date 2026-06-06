@@ -183,3 +183,23 @@ export async function fetchLyricPhrases(isLiked?: boolean): Promise<LyricPhrase[
   const data = await fetchAPI<{ phrases: LyricPhrase[] }>(`/api/phrases${query}`);
   return data.phrases;
 }
+
+export async function updateDictionaryPreference(
+  itemType: 'phrase' | 'rule' | 'ending',
+  itemKey: string,
+  isFavorite: boolean,
+  isDeleted: boolean
+) {
+  const res = await fetch(`${API_BASE}/dictionary-preferences`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      item_type: itemType,
+      item_key: itemKey,
+      is_favorite: isFavorite,
+      is_deleted: isDeleted,
+    }),
+  });
+  if (!res.ok) throw new Error("Failed to update dictionary preference");
+  return res.json();
+}

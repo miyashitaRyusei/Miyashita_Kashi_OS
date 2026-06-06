@@ -1,8 +1,11 @@
 import type { LyricPhrase } from "@/types";
-import { Quote, Tag } from "lucide-react";
+import { Quote, Tag, ChevronDown, ChevronUp, Heart, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { updateDictionaryPreference } from "@/lib/api";
 
 interface PhraseCardProps {
   phrase: LyricPhrase;
+  onRemove?: () => void;
 }
 
 const CATEGORY_STYLES: Record<string, string> = {
@@ -22,7 +25,31 @@ const CATEGORY_STYLES: Record<string, string> = {
   'その他': 'bg-gray-50 text-gray-600 border-gray-200',
 };
 
-export default function PhraseCard({ phrase }: PhraseCardProps) {
+export default function PhraseCard({ phrase, onRemove }: PhraseCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(phrase.is_favorite || false);
+  
+  const handleFavorite = async () => {
+    const nextVal = !isFavorite;
+    setIsFavorite(nextVal);
+    try {
+      await updateDictionaryPreference('phrase', `${phrase.phrase_type}_${phrase.text}`, nextVal, false);
+    } catch (e) {
+      console.error(e);
+      setIsFavorite(!nextVal);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("このフレーズを非表示にしますか？")) return;
+    try {
+      await updateDictionaryPreference('phrase', `${phrase.phrase_type}_${phrase.text}`, isFavorite, true);
+      if (onRemove) onRemove();
+    } catch (e) {
+      alert("削除に失敗しました");
+    }
+  };
+  
   const catStyle = phrase.category && CATEGORY_STYLES[phrase.category] 
     ? CATEGORY_STYLES[phrase.category] 
     : CATEGORY_STYLES['その他'];
@@ -35,9 +62,17 @@ export default function PhraseCard({ phrase }: PhraseCardProps) {
             <Tag size={10} />
             {phrase.category || '未分類'}
           </span>
-          <span className="text-[11px] font-medium text-[#9ca3af] bg-[#efefed] px-2 py-0.5 rounded-full">
-            出現: {phrase.appearance_count}回
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-medium text-[#9ca3af] bg-[#efefed] px-2 py-0.5 rounded-full mr-1">
+              出現: {phrase.appearance_count}回
+            </span>
+            <button onClick={handleFavorite} className={`p-1 rounded hover:bg-gray-100 transition-colors ${isFavorite ? 'text-red-500' : 'text-[#d4d4d2]'}`} title="お気に入り">
+              <Heart size={14} fill={isFavorite ? "currentColor" : "none"} />
+            </button>
+            <button onClick={handleDelete} className="p-1 rounded hover:bg-gray-100 text-[#d4d4d2] hover:text-red-500 transition-colors" title="非表示にする">
+              <Trash2 size={14} />
+            </button>
+          </div>
         </div>
         <div className="pt-2 pb-1 relative">
           <Quote size={16} className="text-[#e9e9e7] absolute -top-1 -left-1" />
@@ -50,23 +85,26 @@ export default function PhraseCard({ phrase }: PhraseCardProps) {
       
       <div className="p-4 flex-1 flex flex-col bg-white">
         <div className="mt-auto">
-          <h4 className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider mb-2">
-            抽出元の行例
-          </h4>
           {phrase.examples && phrase.examples.length > 0 ? (
-            <ul className="space-y-1.5">
-              {phrase.examples.slice(0, 3).map((ex, i) => (
-                <li key={i} className="text-[12px] text-[#787774] font-medium flex items-start gap-1.5">
-                  <span className="text-[#c4c4c2] mt-0.5">•</span>
-                  <span className="leading-relaxed">{ex}</span>
-                </li>
-              ))}
-              {phrase.examples.length > 3 && (
-                <li className="text-[11px] text-[#c4c4c2] italic pl-3 pt-1">
-                  ほか {phrase.examples.length - 3} 件...
-                </li>
+            <div>
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="flex items-center gap-1 text-[11px] font-bold text-[#9ca3af] hover:text-[#787774] transition-colors uppercase tracking-wider mb-2"
+              >
+                抽出元の行例 ({phrase.examples.length})
+                {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              </button>
+              {isExpanded && (
+                <ul className="space-y-1.5 mt-2">
+                  {phrase.examples.map((ex, i) => (
+                    <li key={i} className="text-[12px] text-[#787774] font-medium flex items-start gap-1.5">
+                      <span className="text-[#c4c4c2] mt-0.5">•</span>
+                      <span className="leading-relaxed">{ex}</span>
+                    </li>
+                  ))}
+                </ul>
               )}
-            </ul>
+            </div>
           ) : (
             <div className="text-[12px] text-[#c4c4c2] italic">
               例がありません

@@ -26,6 +26,13 @@ import LLMExportButton from "@/components/dashboard/LLMExportButton";
 
 type ViewMode = "list" | "map";
 
+const AXIS_OPTIONS = [
+  { value: "abstract_balance_score", label: "抽象/具体バランス" },
+  { value: "information_density", label: "情報密度" },
+  { value: "sentiment_score", label: "感情スコア" },
+  { value: "bpm", label: "BPM" },
+];
+
 // ============================================
 // ページコンポーネント
 // ============================================
@@ -35,6 +42,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [xAxisKey, setXAxisKey] = useState<keyof Song>("abstract_balance_score");
+  const [yAxisKey, setYAxisKey] = useState<keyof Song>("information_density");
   const [filters, setFilters] = useState<Filters>({
     artist: "",
     isLiked: null,
@@ -102,18 +111,18 @@ export default function DashboardPage() {
     return filteredSongs
       .filter(
         (s) =>
-          typeof s.abstract_balance_score === 'number' &&
-          typeof s.information_density === 'number'
+          typeof s[xAxisKey] === 'number' &&
+          typeof s[yAxisKey] === 'number'
       )
       .map((s) => ({
         id: s.id,
         name: s.title || "不明",
         artist: s.artist || "不明",
-        x: s.abstract_balance_score ?? 2,
-        y: s.information_density ?? 0,
+        x: s[xAxisKey] as number,
+        y: s[yAxisKey] as number,
         isLiked: s.is_liked,
       }));
-  }, [filteredSongs]);
+  }, [filteredSongs, xAxisKey, yAxisKey]);
 
   // ============================================
   // アクション
@@ -157,13 +166,15 @@ export default function DashboardPage() {
   const ScatterTooltipContent = ({ active, payload }: any) => {
     if (!active || !payload || payload.length === 0) return null;
     const data = payload[0].payload;
+    const xLabel = AXIS_OPTIONS.find(o => o.value === xAxisKey)?.label || xAxisKey;
+    const yLabel = AXIS_OPTIONS.find(o => o.value === yAxisKey)?.label || yAxisKey;
     return (
       <div className="bg-white border border-[#e9e9e7] rounded-lg shadow-lg px-3 py-2.5 text-[12px]">
         <div className="font-semibold text-[#37352f]">{data.name}</div>
         <div className="text-[#787774] text-[11px]">{data.artist}</div>
         <div className="mt-1.5 space-y-0.5 text-[11px] text-[#787774]">
-          <div>抽象/具体: {data.x}/4</div>
-          <div>情報密度: {data.y.toFixed(4)}</div>
+          <div>{xLabel}: {data.x.toFixed(2)}</div>
+          <div>{yLabel}: {data.y.toFixed(4)}</div>
         </div>
       </div>
     );
@@ -252,26 +263,46 @@ export default function DashboardPage() {
         ) : (
           /* ======= Map View (散布図) ======= */
           <div className="border border-[#e9e9e7] rounded-lg p-6 bg-[#fbfbfa]">
-            <div className="flex items-center justify-between mb-5">
-              <div>
+            <div className="flex flex-col gap-3 mb-5">
+              <div className="flex items-center justify-between">
                 <h3 className="text-[14px] font-semibold text-[#37352f]">
                   文体DNAマップ
                 </h3>
-                <p className="text-[11px] text-[#787774] mt-0.5">
-                  X軸: 抽象/具体バランス（左: 抽象的 ⇔ 右: 具象的） ／ Y軸:
-                  情報密度（下: 低い ⇔ 上: 高い）
-                </p>
+                {/* 凡例 */}
+                <div className="flex items-center gap-4 text-[11px] text-[#787774]">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full bg-[#ef4444] inline-block" />
+                    Like
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full bg-[#93c5fd] inline-block" />
+                    Unlike
+                  </span>
+                </div>
               </div>
-              {/* 凡例 */}
-              <div className="flex items-center gap-4 text-[11px] text-[#787774]">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-[#ef4444] inline-block" />
-                  Like
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-[#c4c4c2] inline-block" />
-                  Unlike
-                </span>
+
+              {/* 軸選択 */}
+              <div className="flex items-center gap-4 text-[12px]">
+                <label className="flex items-center gap-2">
+                  <span className="text-[#787774] font-medium">X軸:</span>
+                  <select
+                    value={xAxisKey}
+                    onChange={(e) => setXAxisKey(e.target.value as keyof Song)}
+                    className="px-2 py-1 rounded border border-[#e9e9e7] bg-white text-[#37352f] focus:outline-none"
+                  >
+                    {AXIS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </label>
+                <label className="flex items-center gap-2">
+                  <span className="text-[#787774] font-medium">Y軸:</span>
+                  <select
+                    value={yAxisKey}
+                    onChange={(e) => setYAxisKey(e.target.value as keyof Song)}
+                    className="px-2 py-1 rounded border border-[#e9e9e7] bg-white text-[#37352f] focus:outline-none"
+                  >
+                    {AXIS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </label>
               </div>
             </div>
 
@@ -288,26 +319,17 @@ export default function DashboardPage() {
                   <XAxis
                     type="number"
                     dataKey="x"
-                    name="抽象/具体"
-                    domain={[0.5, 4.5]}
-                    ticks={[1, 2, 3, 4]}
+                    name={AXIS_OPTIONS.find(o => o.value === xAxisKey)?.label || "X軸"}
+                    domain={['auto', 'auto']}
                     fontSize={11}
                     tickLine={false}
                     axisLine={{ stroke: "#e9e9e7" }}
-                    tickFormatter={(v: number) =>
-                      v === 1
-                        ? "抽象的"
-                        : v === 2
-                        ? "やや抽象"
-                        : v === 3
-                        ? "やや具象"
-                        : "具象的"
-                    }
                   />
                   <YAxis
                     type="number"
                     dataKey="y"
-                    name="情報密度"
+                    name={AXIS_OPTIONS.find(o => o.value === yAxisKey)?.label || "Y軸"}
+                    domain={['auto', 'auto']}
                     fontSize={11}
                     tickLine={false}
                     axisLine={{ stroke: "#e9e9e7" }}
@@ -322,8 +344,8 @@ export default function DashboardPage() {
                     {scatterData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
-                        fill={entry.isLiked ? "#ef4444" : "#c4c4c2"}
-                        stroke={entry.isLiked ? "#dc2626" : "#a5a5a2"}
+                        fill={entry.isLiked ? "#ef4444" : "#93c5fd"}
+                        stroke={entry.isLiked ? "#dc2626" : "#60a5fa"}
                         strokeWidth={1}
                         r={7}
                       />

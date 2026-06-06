@@ -51,6 +51,7 @@ export interface SentenceEnding {
   appearance_count: number;
   examples: string[];
   created_at: string;
+  is_favorite?: boolean;
 }
 
 export interface LyricRule {
@@ -60,6 +61,7 @@ export interface LyricRule {
   tag: string | null;
   examples: string[] | null;
   created_at: string;
+  is_favorite?: boolean;
 }
 
 export interface LyricPhrase {
@@ -69,6 +71,8 @@ export interface LyricPhrase {
   category: string | null;
   appearance_count: number;
   examples: string[] | null;
+  created_at: string;
+  is_favorite?: boolean;
 }
 
 export interface Rhetoric {

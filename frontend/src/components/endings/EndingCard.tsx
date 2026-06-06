@@ -1,15 +1,41 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, Hash } from "lucide-react";
+import { ChevronRight, Hash, Heart, Trash2 } from "lucide-react";
 import type { SentenceEnding } from "@/types";
+import { updateDictionaryPreference } from "@/lib/api";
 
 interface EndingCardProps {
   ending: SentenceEnding;
+  onRemove?: () => void;
 }
 
-export default function EndingCard({ ending }: EndingCardProps) {
+export default function EndingCard({ ending, onRemove }: EndingCardProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(ending.is_favorite || false);
+
+  const handleFavorite = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // アコーディオンの開閉を防ぐ
+    const nextVal = !isFavorite;
+    setIsFavorite(nextVal);
+    try {
+      await updateDictionaryPreference('ending', ending.ending_text, nextVal, false);
+    } catch (err) {
+      console.error(err);
+      setIsFavorite(!nextVal);
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("この文末表現を非表示にしますか？")) return;
+    try {
+      await updateDictionaryPreference('ending', ending.ending_text, isFavorite, true);
+      if (onRemove) onRemove();
+    } catch (err) {
+      alert("削除に失敗しました");
+    }
+  };
 
   return (
     <div className="border border-[#e9e9e7] rounded-lg overflow-hidden bg-white hover:border-[#d4d4d2] transition-colors">
@@ -31,9 +57,25 @@ export default function EndingCard({ ending }: EndingCardProps) {
             {ending.category}
           </span>
         </div>
-        <div className="flex items-center gap-1.5 text-[12px] text-[#787774]">
-          <Hash size={12} />
-          {ending.appearance_count}回
+        <div className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1.5 text-[12px] text-[#787774] mr-2">
+            <Hash size={12} />
+            {ending.appearance_count}回
+          </span>
+          <div
+            onClick={handleFavorite}
+            className={`p-1.5 rounded hover:bg-gray-100 transition-colors ${isFavorite ? 'text-red-500' : 'text-[#d4d4d2]'}`}
+            title="お気に入り"
+          >
+            <Heart size={14} fill={isFavorite ? "currentColor" : "none"} />
+          </div>
+          <div
+            onClick={handleDelete}
+            className="p-1.5 rounded hover:bg-gray-100 text-[#d4d4d2] hover:text-red-500 transition-colors"
+            title="非表示にする"
+          >
+            <Trash2 size={14} />
+          </div>
         </div>
       </button>
 

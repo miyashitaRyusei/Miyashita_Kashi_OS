@@ -81,7 +81,11 @@ export default function EndingsPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {filteredEndings.map((ending) => (
-                <EndingCard key={ending.id} ending={ending} />
+                <EndingCard 
+                  key={ending.id} 
+                  ending={ending} 
+                  onRemove={() => setEndings(prev => prev.filter(e => e.id !== ending.id))}
+                />
               ))}
               {filteredEndings.length === 0 && (
                 <div className="col-span-full py-12 text-center text-[#9ca3af] text-[13px]">

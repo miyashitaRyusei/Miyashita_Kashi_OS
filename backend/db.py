@@ -263,6 +263,27 @@ def update_rhetoric(rhetoric_id: str, reason: str, type_str: str = None, phrase:
 # ============================================
 # 本来は分析完了時等に抽出されたデータをこれらに保存する。
 
+def _get_preferences(item_type: str) -> dict:
+    sb = get_supabase()
+    res = sb.table("user_dictionary_preferences").select("*").eq("item_type", item_type).execute()
+    return {row["item_key"]: row for row in res.data}
+
+def set_dictionary_preference(item_type: str, item_key: str, is_favorite: bool, is_deleted: bool):
+    sb = get_supabase()
+    res = sb.table("user_dictionary_preferences").select("id").eq("item_type", item_type).eq("item_key", item_key).execute()
+    if res.data:
+        sb.table("user_dictionary_preferences").update({
+            "is_favorite": is_favorite,
+            "is_deleted": is_deleted
+        }).eq("id", res.data[0]["id"]).execute()
+    else:
+        sb.table("user_dictionary_preferences").insert({
+            "item_type": item_type,
+            "item_key": item_key,
+            "is_favorite": is_favorite,
+            "is_deleted": is_deleted
+        }).execute()
+
 def get_sentence_endings(is_liked: Optional[bool] = None) -> list:
     sb = get_supabase()
     query = sb.table("sentence_endings").select("*, songs!inner(is_liked)")
@@ -287,8 +308,17 @@ def get_sentence_endings(is_liked: Optional[bool] = None) -> list:
         if row.get("examples"):
             aggregated[text]["examples"].extend(row["examples"])
             
+    prefs = _get_preferences("ending")
+    final_list = []
+    for ending in aggregated.values():
+        pref = prefs.get(ending["ending_text"], {})
+        if pref.get("is_deleted"):
+            continue
+        ending["is_favorite"] = pref.get("is_favorite", False)
+        final_list.append(ending)
+
     # 出現回数で降順ソート
-    sorted_endings = sorted(aggregated.values(), key=lambda x: x["appearance_count"], reverse=True)
+    sorted_endings = sorted(final_list, key=lambda x: (x.get("is_favorite", False), x["appearance_count"]), reverse=True)
     return sorted_endings
 
 
@@ -297,7 +327,18 @@ def get_lyric_rules(is_liked: Optional[bool] = None) -> list:
     query = sb.table("lyric_rules").select("*, songs!inner(is_liked)")
     if is_liked is not None:
         query = query.eq("songs.is_liked", is_liked)
-    return query.order("created_at", desc=True).execute().data
+    data = query.order("created_at", desc=True).execute().data
+    
+    prefs = _get_preferences("rule")
+    final_list = []
+    for row in data:
+        pref = prefs.get(row["rule_name"], {})
+        if pref.get("is_deleted"):
+            continue
+        row["is_favorite"] = pref.get("is_favorite", False)
+        final_list.append(row)
+        
+    return sorted(final_list, key=lambda x: x.get("is_favorite", False), reverse=True)
 
 
 def get_lyric_phrases(is_liked: Optional[bool] = None) -> list:
@@ -330,5 +371,15 @@ def get_lyric_phrases(is_liked: Optional[bool] = None) -> list:
         if row.get("examples"):
             aggregated[key]["examples"].extend(row["examples"])
             
-    sorted_phrases = sorted(aggregated.values(), key=lambda x: x["appearance_count"], reverse=True)
+    prefs = _get_preferences("phrase")
+    final_list = []
+    for phrase in aggregated.values():
+        key = f'{phrase["phrase_type"]}_{phrase["text"]}'
+        pref = prefs.get(key, {})
+        if pref.get("is_deleted"):
+            continue
+        phrase["is_favorite"] = pref.get("is_favorite", False)
+        final_list.append(phrase)
+
+    sorted_phrases = sorted(final_list, key=lambda x: (x.get("is_favorite", False), x["appearance_count"]), reverse=True)
     return sorted_phrases

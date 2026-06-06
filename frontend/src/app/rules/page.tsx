@@ -84,7 +84,10 @@ export default function RulesPage() {
             <LoadingSpinner />
           </div>
         ) : (
-          <RuleGallery rules={filteredRules} />
+          <RuleGallery 
+            rules={filteredRules} 
+            onRemove={(id) => setRules(prev => prev.filter(r => r.id !== id))}
+          />
         )}
       </div>
     </div>
