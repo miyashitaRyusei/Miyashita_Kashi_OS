@@ -30,7 +30,6 @@ const AXIS_OPTIONS = [
   { value: "abstract_balance_score", label: "抽象/具体バランス" },
   { value: "information_density", label: "情報密度" },
   { value: "sentiment_score", label: "感情スコア" },
-  { value: "bpm", label: "BPM" },
 ];
 
 // ============================================

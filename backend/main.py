@@ -133,6 +133,14 @@ def process_analysis_task(song_id: str, title: str, artist: str, sections: List[
             p_dict["examples"] = [source] if source else []
             phrase_classifications_dict.append(p_dict)
 
+        # セクションの平均値を全体のスコアとして算出
+        if section_results:
+            avg_concreteness = sum(s["abstract_balance_score"] for s in section_results) / len(section_results)
+            avg_sentiment = sum(s["sentiment_score"] for s in section_results) / len(section_results)
+        else:
+            avg_concreteness = song_llm_res.abstract_balance_score
+            avg_sentiment = song_llm_res.sentiment_score
+
         # 4. 全体の統合とDB保存
         final_response = {
             "song_id": song_id,
@@ -140,8 +148,8 @@ def process_analysis_task(song_id: str, title: str, artist: str, sections: List[
             "artist": artist,
             "macro_metrics": {
                 "information_density": py_song_res.information_density,
-                "concreteness_score": song_llm_res.abstract_balance_score,
-                "sentiment_score": song_llm_res.sentiment_score,
+                "concreteness_score": round(avg_concreteness, 2),
+                "sentiment_score": round(avg_sentiment, 3),
             },
             "colloquial_level": song_llm_res.colloquial_level,
             "timeline": song_llm_res.timeline,
