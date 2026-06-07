@@ -19,7 +19,7 @@ import {
 
 const NAV_ITEMS = [
   { href: "/", label: "楽曲データベース", icon: Database },
-  { href: "/editor", label: "作詞エディタ", icon: PenLine },
+  { href: "/editor", label: "楽曲登録エディタ", icon: PenLine },
   { href: "/endings", label: "文末表現辞書", icon: BookType },
   { href: "/phrases", label: "フレーズ辞典", icon: BookType },
   { href: "/rules", label: "作詞ルールブック", icon: BookOpen },

@@ -19,6 +19,7 @@ import SongFilterBar from "@/components/dashboard/SongFilterBar";
 import type { Filters } from "@/components/dashboard/SongFilterBar";
 import SongDataGrid from "@/components/dashboard/SongDataGrid";
 import LLMExportButton from "@/components/dashboard/LLMExportButton";
+import PreferenceAnalysis from "@/components/dashboard/PreferenceAnalysis";
 
 // ============================================
 // 型定義
@@ -33,6 +34,8 @@ const AXIS_OPTIONS = [
   { value: "perspective_score", label: "視点の広さ (ミクロ/マクロ)" },
   { value: "narrative_score", label: "物語性 (叙情/ストーリー)" },
   { value: "cynicism_score", label: "皮肉度 (純粋/ひねくれ)" },
+  { value: "colloquial_level", label: "口語度 (詩的/口語)" },
+  { value: "timeline", label: "時間軸 (過去/未来)" },
 ];
 
 // ============================================
@@ -109,20 +112,34 @@ export default function DashboardPage() {
   // ============================================
 
   const scatterData = useMemo(() => {
+    const getNumericValue = (song: Song, key: keyof Song): number | null => {
+      const val = song[key];
+      if (typeof val === 'number') return val;
+      if (key === 'colloquial_level') {
+        if (val === 'poetic') return -1;
+        if (val === 'colloquial') return 1;
+        if (val === 'intermediate') return 0;
+        return 0;
+      }
+      if (key === 'timeline') {
+        if (val === 'past') return -1;
+        if (val === 'future') return 1;
+        if (val === 'present' || val === 'mixed') return 0;
+        return 0;
+      }
+      return null;
+    };
+
     return filteredSongs
-      .filter(
-        (s) =>
-          typeof s[xAxisKey] === 'number' &&
-          typeof s[yAxisKey] === 'number'
-      )
       .map((s) => ({
         id: s.id,
         name: s.title || "不明",
         artist: s.artist || "不明",
-        x: s[xAxisKey] as number,
-        y: s[yAxisKey] as number,
+        x: getNumericValue(s, xAxisKey),
+        y: getNumericValue(s, yAxisKey),
         isLiked: s.is_liked,
-      }));
+      }))
+      .filter((d) => typeof d.x === 'number' && typeof d.y === 'number');
   }, [filteredSongs, xAxisKey, yAxisKey]);
 
   // ============================================
@@ -360,6 +377,13 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* =============================== */}
+        {/* Like傾向分析ダッシュボード */}
+        {/* =============================== */}
+        {viewMode === "map" && !loading && (
+          <PreferenceAnalysis songs={filteredSongs} />
         )}
       </div>
     </div>

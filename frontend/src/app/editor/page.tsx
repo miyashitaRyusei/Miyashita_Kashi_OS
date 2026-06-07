@@ -18,6 +18,33 @@ export default function EditorPage() {
   // タイマー用の参照
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const clockTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // テキストエリアの参照
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertSection = (tag: string) => {
+    if (!textareaRef.current) return;
+    const start = textareaRef.current.selectionStart;
+    const end = textareaRef.current.selectionEnd;
+    const currentLyrics = lyrics;
+    const newLyrics =
+      currentLyrics.substring(0, start) +
+      tag +
+      "\n" +
+      currentLyrics.substring(end);
+    setLyrics(newLyrics);
+
+    // Reactの再レンダリング後にカーソル位置を調整
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.selectionStart = textareaRef.current.selectionEnd =
+          start + tag.length + 1;
+        textareaRef.current.focus();
+      }
+    }, 0);
+  };
+
+  const SECTION_TAGS = ["[1A]", "[1B]", "[1C]", "[2A]", "[2B]", "[2C]", "[D]", "[OC]", "[LC]", "[]"];
 
   const sectionCount = lyrics
     .split("\n")
@@ -245,14 +272,31 @@ export default function EditorPage() {
         </div>
 
         {/* エディタ */}
-        <div className="relative group mb-32">
-          <textarea
-            className="w-full min-h-[50vh] text-[#37352f] bg-transparent border-none resize-none focus:outline-none focus:ring-0 leading-loose text-[15px]"
-            placeholder={`[1A]\n冷たい炎が 胸を焦がす\n昨日の君が 遠ざかる\n\n[サビ]\n忘れないよ あの日の空\n僕らが見た 永遠の光`}
-            value={lyrics}
-            onChange={(e) => setLyrics(e.target.value)}
-            disabled={isAnalyzing}
-          />
+        <div className="flex gap-4 mb-32">
+          {/* セクションタグボタン */}
+          <div className="w-16 flex flex-col gap-2 pt-1">
+            {SECTION_TAGS.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => insertSection(tag)}
+                disabled={isAnalyzing}
+                className="w-full text-center py-1.5 text-[11px] font-mono font-bold text-[#787774] bg-[#fbfbfa] border border-[#e9e9e7] rounded-md hover:bg-[#efefed] hover:text-[#37352f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative group flex-1">
+            <textarea
+              ref={textareaRef}
+              className="w-full min-h-[50vh] text-[#37352f] bg-transparent border-none resize-none focus:outline-none focus:ring-0 leading-loose text-[15px]"
+              placeholder={`[1A]\n冷たい炎が 胸を焦がす\n昨日の君が 遠ざかる\n\n[サビ]\n忘れないよ あの日の空\n僕らが見た 永遠の光`}
+              value={lyrics}
+              onChange={(e) => setLyrics(e.target.value)}
+              disabled={isAnalyzing}
+            />
+          </div>
         </div>
       </div>
 
