@@ -7,13 +7,14 @@ import { Search } from "lucide-react";
 // ============================================
 
 export interface Filters {
-  artist: string;
+  searchQuery: string;
   isLiked: boolean | null;
-  colloquialLevel: string;
+  selectedArtist: string;
 }
 
 interface SongFilterBarProps {
   filters: Filters;
+  artists: string[];
   onFilterChange: (filters: Filters) => void;
 }
 
@@ -23,25 +24,26 @@ interface SongFilterBarProps {
 
 export default function SongFilterBar({
   filters,
+  artists,
   onFilterChange,
 }: SongFilterBarProps) {
   return (
     <div className="flex items-center gap-3 flex-wrap">
-      {/* アーティスト / タイトル検索 */}
+      {/* タイトル検索 */}
       <div className="flex items-center gap-2 border border-[#e9e9e7] rounded-md px-2.5 py-1.5 bg-white focus-within:border-[#37352f] transition-colors">
         <Search size={14} className="text-[#9ca3af] flex-shrink-0" />
         <input
           type="text"
-          placeholder="タイトル・アーティスト検索..."
-          value={filters.artist}
+          placeholder="タイトル検索..."
+          value={filters.searchQuery}
           onChange={(e) =>
-            onFilterChange({ ...filters, artist: e.target.value })
+            onFilterChange({ ...filters, searchQuery: e.target.value })
           }
           className="bg-transparent border-none outline-none text-[13px] w-44 placeholder-[#d4d4d2] text-[#37352f]"
         />
       </div>
 
-      {/* Like フィルタ（セグメントコントロール） */}
+      {/* Like フィルタ */}
       <div className="flex items-center border border-[#e9e9e7] rounded-md overflow-hidden">
         {[
           { value: null, label: "All" },
@@ -64,18 +66,20 @@ export default function SongFilterBar({
         ))}
       </div>
 
-      {/* 口語度フィルタ */}
+      {/* アーティストフィルタ */}
       <select
-        value={filters.colloquialLevel}
+        value={filters.selectedArtist}
         onChange={(e) =>
-          onFilterChange({ ...filters, colloquialLevel: e.target.value })
+          onFilterChange({ ...filters, selectedArtist: e.target.value })
         }
         className="border border-[#e9e9e7] rounded-md px-2.5 py-1.5 text-[12px] bg-white text-[#37352f] cursor-pointer outline-none hover:border-[#d4d4d2] transition-colors"
       >
-        <option value="">口語度: All</option>
-        <option value="colloquial">🗣️ 口語</option>
-        <option value="intermediate">📝 中間</option>
-        <option value="poetic">✨ 詩的</option>
+        <option value="">アーティスト: All</option>
+        {artists.map((artist) => (
+          <option key={artist} value={artist}>
+            {artist}
+          </option>
+        ))}
       </select>
     </div>
   );

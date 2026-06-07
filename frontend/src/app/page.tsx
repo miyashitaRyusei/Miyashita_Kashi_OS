@@ -47,10 +47,16 @@ export default function DashboardPage() {
   const [xAxisKey, setXAxisKey] = useState<keyof Song>("abstract_balance_score");
   const [yAxisKey, setYAxisKey] = useState<keyof Song>("information_density");
   const [filters, setFilters] = useState<Filters>({
-    artist: "",
+    searchQuery: "",
     isLiked: null,
-    colloquialLevel: "",
+    selectedArtist: "",
   });
+
+  const artists = useMemo(() => {
+    const set = new Set<string>();
+    songs.forEach((s) => s.artist && set.add(s.artist));
+    return Array.from(set).sort();
+  }, [songs]);
 
   // ============================================
   // データ取得
@@ -78,27 +84,20 @@ export default function DashboardPage() {
 
   const filteredSongs = useMemo(() => {
     return songs.filter((song) => {
-      // テキスト検索（タイトル + アーティスト）
-      if (filters.artist) {
-        const query = filters.artist.toLowerCase();
-        const artist = song.artist || "";
+      // テキスト検索（タイトル）
+      if (filters.searchQuery) {
+        const query = filters.searchQuery.toLowerCase();
         const title = song.title || "";
-        if (
-          !artist.toLowerCase().includes(query) &&
-          !title.toLowerCase().includes(query)
-        ) {
+        if (!title.toLowerCase().includes(query)) {
           return false;
         }
       }
-      // Like フィルタ
-      if (filters.isLiked !== null && song.is_liked !== filters.isLiked) {
+      // アーティストフィルタ
+      if (filters.selectedArtist && song.artist !== filters.selectedArtist) {
         return false;
       }
-      // 口語度フィルタ
-      if (
-        filters.colloquialLevel &&
-        song.colloquial_level !== filters.colloquialLevel
-      ) {
+      // Like フィルタ
+      if (filters.isLiked !== null && song.is_liked !== filters.isLiked) {
         return false;
       }
       return true;
@@ -242,7 +241,7 @@ export default function DashboardPage() {
         {/* フィルタバー */}
         {/* =============================== */}
         <div className="mb-5">
-          <SongFilterBar filters={filters} onFilterChange={setFilters} />
+          <SongFilterBar filters={filters} artists={artists} onFilterChange={setFilters} />
         </div>
 
         {/* =============================== */}

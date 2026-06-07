@@ -1,7 +1,8 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Music, Trash2 } from "lucide-react";
+import { Music, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import type { Song } from "@/types";
 
 // ============================================
@@ -26,6 +27,9 @@ interface SongDataGridProps {
   onToggleLike: (id: string, isLiked: boolean) => void;
 }
 
+type SortKey = keyof Song | null;
+type SortOrder = "asc" | "desc";
+
 // ============================================
 // コンポーネント
 // ============================================
@@ -38,9 +42,11 @@ export default function SongDataGrid({
   onToggleLike,
 }: SongDataGridProps) {
   const router = useRouter();
+  const [sortKey, setSortKey] = useState<SortKey>(null);
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
 
   const allSelected =
-    songs.length > 0 && songs.every((s) => selectedIds.has(s.id));
+    songs.length > 0 && songs.length === selectedIds.size;
 
   const handleSelectAll = () => {
     if (allSelected) {
@@ -57,27 +63,61 @@ export default function SongDataGrid({
     onSelectionChange(next);
   };
 
-  const sentimentDisplay = (score: number | null | undefined) => {
+  const handleSort = (key: keyof Song) => {
+    if (sortKey === key) {
+      if (sortOrder === "asc") setSortOrder("desc");
+      else {
+        setSortKey(null);
+        setSortOrder("asc");
+      }
+    } else {
+      setSortKey(key);
+      setSortOrder("asc");
+    }
+  };
+
+  const sortedSongs = useMemo(() => {
+    if (!sortKey) return songs;
+    return [...songs].sort((a, b) => {
+      const aVal = a[sortKey];
+      const bVal = b[sortKey];
+      if (aVal === null || aVal === undefined) return 1;
+      if (bVal === null || bVal === undefined) return -1;
+      if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [songs, sortKey, sortOrder]);
+
+  const SortIcon = ({ columnKey }: { columnKey: keyof Song }) => {
+    if (sortKey !== columnKey) return <ArrowUpDown size={12} className="text-[#d4d4d2] opacity-0 group-hover:opacity-100 transition-opacity ml-1 inline-block" />;
+    if (sortOrder === "asc") return <ArrowUp size={12} className="text-[#37352f] ml-1 inline-block" />;
+    return <ArrowDown size={12} className="text-[#37352f] ml-1 inline-block" />;
+  };
+
+  const scoreBadge = (score: number | null | undefined, reverseColor: boolean = false) => {
     if (typeof score !== 'number') return { text: "—", cls: "text-[#d4d4d2]" };
     const sign = score > 0 ? "+" : "";
-    const color =
-      score > 0.3
-        ? "bg-emerald-50 text-emerald-700"
-        : score < -0.3
-        ? "bg-red-50 text-red-700"
-        : "bg-amber-50 text-amber-700";
+    
+    let color = "bg-amber-50 text-amber-700 border-amber-200";
+    if (score > 0.3) {
+      color = reverseColor ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-red-50 text-red-700 border-red-200";
+    } else if (score < -0.3) {
+      color = reverseColor ? "bg-red-50 text-red-700 border-red-200" : "bg-blue-50 text-blue-700 border-blue-200";
+    }
+
     return {
-      text: `${sign}${score.toFixed(1)}`,
-      cls: `px-2 py-0.5 rounded-full text-[11px] font-medium ${color}`,
+      text: `${sign}${score.toFixed(2)}`,
+      cls: `px-1.5 py-0.5 rounded border text-[10px] font-mono font-medium ${color} inline-block min-w-[38px] text-center`,
     };
   };
 
   return (
-    <div className="border border-[#e9e9e7] rounded-lg overflow-hidden">
-      <table className="w-full text-[13px] text-left">
-        <thead className="text-[11px] text-[#787774] border-b border-[#e9e9e7] bg-[#fbfbfa] uppercase tracking-wider">
+    <div className="border border-[#e9e9e7] rounded-lg overflow-x-auto max-h-[600px] overflow-y-auto">
+      <table className="w-full text-[13px] text-left whitespace-nowrap">
+        <thead className="sticky top-0 z-10 bg-[#fbfbfa] text-[11px] text-[#787774] border-b border-[#e9e9e7] shadow-sm uppercase tracking-wider">
           <tr>
-            <th className="px-3 py-2.5 w-10">
+            <th className="px-3 py-2.5 w-10 text-center">
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -85,23 +125,77 @@ export default function SongDataGrid({
                 className="rounded border-[#d4d4d2] cursor-pointer accent-[#37352f]"
               />
             </th>
-            <th className="px-3 py-2.5 font-medium">タイトル</th>
-            <th className="px-3 py-2.5 font-medium">アーティスト</th>
-            <th className="px-3 py-2.5 font-medium text-center">感情</th>
-            <th className="px-3 py-2.5 font-medium text-center">抽象/具体</th>
-            <th className="px-3 py-2.5 font-medium text-center">視点</th>
-            <th className="px-3 py-2.5 font-medium text-center">物語性</th>
-            <th className="px-3 py-2.5 font-medium text-center">皮肉度</th>
-            <th className="px-3 py-2.5 font-medium text-center">口語度</th>
-            <th className="px-3 py-2.5 font-medium text-center">密度</th>
-            <th className="px-3 py-2.5 font-medium text-center">Like</th>
-            <th className="px-3 py-2.5 w-12"></th>
+            <th 
+              className="px-3 py-2.5 font-medium cursor-pointer group hover:text-[#37352f]"
+              onClick={() => handleSort("title")}
+            >
+              タイトル <SortIcon columnKey="title" />
+            </th>
+            <th 
+              className="px-3 py-2.5 font-medium cursor-pointer group hover:text-[#37352f]"
+              onClick={() => handleSort("artist")}
+            >
+              アーティスト <SortIcon columnKey="artist" />
+            </th>
+            <th 
+              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              onClick={() => handleSort("sentiment_score")}
+            >
+              感情 <SortIcon columnKey="sentiment_score" />
+            </th>
+            <th 
+              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              onClick={() => handleSort("abstract_balance_score")}
+            >
+              抽象/具体 <SortIcon columnKey="abstract_balance_score" />
+            </th>
+            <th 
+              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              onClick={() => handleSort("perspective_score")}
+            >
+              視点 <SortIcon columnKey="perspective_score" />
+            </th>
+            <th 
+              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              onClick={() => handleSort("narrative_score")}
+            >
+              物語性 <SortIcon columnKey="narrative_score" />
+            </th>
+            <th 
+              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              onClick={() => handleSort("cynicism_score")}
+            >
+              皮肉度 <SortIcon columnKey="cynicism_score" />
+            </th>
+            <th 
+              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              onClick={() => handleSort("colloquial_level")}
+            >
+              口語度 <SortIcon columnKey="colloquial_level" />
+            </th>
+            <th 
+              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              onClick={() => handleSort("information_density")}
+            >
+              密度 <SortIcon columnKey="information_density" />
+            </th>
+            <th 
+              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              onClick={() => handleSort("is_liked")}
+            >
+              Like <SortIcon columnKey="is_liked" />
+            </th>
+            <th className="px-3 py-2.5 w-12 text-center"></th>
           </tr>
         </thead>
-        <tbody>
-          {songs.length > 0 ? (
-            songs.map((song, i) => {
-              const sentiment = sentimentDisplay(song.sentiment_score);
+        <tbody className="bg-white">
+          {sortedSongs.length > 0 ? (
+            sortedSongs.map((song, i) => {
+              const sentiment = scoreBadge(song.sentiment_score);
+              const perspective = scoreBadge(song.perspective_score);
+              const narrative = scoreBadge(song.narrative_score);
+              const cynicism = scoreBadge(song.cynicism_score, true); // 皮肉度はプラス（ひねくれ）が青系になる
+
               return (
                 <tr
                   key={song.id || `song-${i}`}
@@ -110,7 +204,7 @@ export default function SongDataGrid({
                 >
                   {/* チェックボックス */}
                   <td
-                    className="px-3 py-2.5"
+                    className="px-3 py-2.5 text-center"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <input
@@ -125,27 +219,25 @@ export default function SongDataGrid({
                   <td className="px-3 py-2.5 font-medium">
                     <div className="flex items-center gap-2">
                       <Music size={14} className="text-[#d4d4d2] flex-shrink-0" />
-                      <span className="truncate max-w-[200px]">{song.title || "不明"}</span>
+                      <span className="truncate max-w-[160px]">{song.title || "不明"}</span>
                     </div>
                   </td>
 
                   {/* アーティスト */}
-                  <td className="px-3 py-2.5 text-[#787774]">{song.artist || "不明"}</td>
+                  <td className="px-3 py-2.5 text-[#787774] truncate max-w-[120px]">{song.artist || "不明"}</td>
 
-                  {/* 感情極性 */}
-                  <td className="px-3 py-2.5 text-center">
-                    <span className={sentiment.cls}>{sentiment.text}</span>
-                  </td>
-
-                  {/* 抽象/具体 ドットインジケーター */}
+                  {/* 各種スコア */}
+                  <td className="px-3 py-2.5 text-center"><span className={sentiment.cls}>{sentiment.text}</span></td>
+                  
+                  {/* 抽象/具体（ドット） */}
                   <td className="px-3 py-2.5 text-center">
                     {typeof song.abstract_balance_score === 'number' ? (
-                      <div className="flex items-center justify-center gap-0.5">
+                      <div className="flex items-center justify-center gap-0.5" title={song.abstract_balance_score.toFixed(2)}>
                         {[1, 2, 3, 4].map((dot) => (
                           <div
                             key={dot}
-                            className={`w-2 h-2 rounded-full transition-colors ${
-                              dot <= (song.abstract_balance_score ?? 0)
+                            className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                              dot <= Math.round(song.abstract_balance_score ?? 0)
                                 ? "bg-[#37352f]"
                                 : "bg-[#e9e9e7]"
                             }`}
@@ -157,28 +249,20 @@ export default function SongDataGrid({
                     )}
                   </td>
 
-                  {/* 新しいスコア */}
-                  <td className="px-3 py-2.5 text-center text-[#787774] font-mono text-[11px]">
-                    {typeof song.perspective_score === 'number' ? song.perspective_score.toFixed(2) : "—"}
-                  </td>
-                  <td className="px-3 py-2.5 text-center text-[#787774] font-mono text-[11px]">
-                    {typeof song.narrative_score === 'number' ? song.narrative_score.toFixed(2) : "—"}
-                  </td>
-                  <td className="px-3 py-2.5 text-center text-[#787774] font-mono text-[11px]">
-                    {typeof song.cynicism_score === 'number' ? song.cynicism_score.toFixed(2) : "—"}
-                  </td>
+                  <td className="px-3 py-2.5 text-center"><span className={perspective.cls}>{perspective.text}</span></td>
+                  <td className="px-3 py-2.5 text-center"><span className={narrative.cls}>{narrative.text}</span></td>
+                  <td className="px-3 py-2.5 text-center"><span className={cynicism.cls}>{cynicism.text}</span></td>
 
                   {/* 口語度バッジ */}
                   <td className="px-3 py-2.5 text-center">
                     {song.colloquial_level ? (
                       <span
-                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium border ${
+                        className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border ${
                           COLLOQUIAL_BADGE[song.colloquial_level]?.color ||
                           "bg-gray-50 text-gray-600 border-gray-200"
                         }`}
                       >
-                        {COLLOQUIAL_BADGE[song.colloquial_level]?.text ||
-                          song.colloquial_level}
+                        {COLLOQUIAL_BADGE[song.colloquial_level]?.text || song.colloquial_level}
                       </span>
                     ) : (
                       <span className="text-[#d4d4d2]">—</span>
@@ -186,9 +270,9 @@ export default function SongDataGrid({
                   </td>
 
                   {/* 情報密度 */}
-                  <td className="px-3 py-2.5 text-center font-mono text-[12px]">
+                  <td className="px-3 py-2.5 text-center font-mono text-[11px] text-[#787774]">
                     {typeof song.information_density === 'number'
-                      ? song.information_density.toFixed(4)
+                      ? song.information_density.toFixed(3)
                       : "—"}
                   </td>
 
@@ -199,7 +283,7 @@ export default function SongDataGrid({
                   >
                     <button
                       onClick={() => onToggleLike(song.id, !song.is_liked)}
-                      className="text-lg hover:scale-110 transition-transform"
+                      className="text-base hover:scale-110 transition-transform"
                     >
                       {song.is_liked ? "❤️" : "🤍"}
                     </button>
@@ -223,8 +307,8 @@ export default function SongDataGrid({
           ) : (
             <tr>
               <td
-                colSpan={9}
-                className="px-4 py-12 text-center text-[#9ca3af]"
+                colSpan={12}
+                className="px-4 py-16 text-center text-[#9ca3af]"
               >
                 楽曲データがありません
               </td>
