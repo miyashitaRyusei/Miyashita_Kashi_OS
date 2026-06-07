@@ -1,16 +1,12 @@
 import type { Metadata } from "next";
-import { Inter, Geist_Mono } from "next/font/google";
+import { Zen_Kaku_Gothic_New } from "next/font/google";
 import Sidebar from "@/components/layout/Sidebar";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+const zenKakuGothic = Zen_Kaku_Gothic_New({
+  weight: ['400', '500', '700', '900'],
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: "--font-zen-kaku",
 });
 
 export const metadata: Metadata = {
@@ -26,9 +22,9 @@ export default function RootLayout({
   return (
     <html
       lang="ja"
-      className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${zenKakuGothic.variable} h-full antialiased`}
     >
-      <body className="h-full flex flex-col md:flex-row bg-white text-[#37352f]">
+      <body className={`h-full flex flex-col md:flex-row bg-white text-[#37352f] ${zenKakuGothic.className}`}>
         <Sidebar />
         <main className="flex-1 flex flex-col h-full overflow-hidden">
           {children}

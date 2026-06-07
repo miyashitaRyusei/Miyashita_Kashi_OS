@@ -54,17 +54,22 @@ export default function PhraseCard({ phrase, onRemove }: PhraseCardProps) {
     ? CATEGORY_STYLES[phrase.category] 
     : CATEGORY_STYLES['その他'];
 
+  const textLength = phrase.text.length;
+  let textSizeClass = "text-[18px]";
+  if (textLength > 15) textSizeClass = "text-[13px]";
+  else if (textLength > 10) textSizeClass = "text-[15px]";
+
   return (
     <div className="border border-[#e9e9e7] rounded-lg bg-white overflow-hidden hover:shadow-md transition-shadow flex flex-col h-full">
       <div className="p-4 border-b border-[#e9e9e7] bg-[#fbfbfa] flex flex-col gap-2 relative">
-        <div className="flex items-center justify-between">
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${catStyle}`}>
+        <div className="flex items-start justify-between">
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border whitespace-nowrap flex-shrink-0 ${catStyle}`}>
             <Tag size={10} />
             {phrase.category || '未分類'}
           </span>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-medium text-[#9ca3af] bg-[#efefed] px-2 py-0.5 rounded-full mr-1">
-              出現: {phrase.appearance_count}回
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <span className="text-[12px] font-medium text-[#9ca3af] mr-1 whitespace-nowrap">
+              {phrase.appearance_count}回
             </span>
             <button onClick={handleFavorite} className={`p-1 rounded hover:bg-gray-100 transition-colors ${isFavorite ? 'text-red-500' : 'text-[#d4d4d2]'}`} title="お気に入り">
               <Heart size={14} fill={isFavorite ? "currentColor" : "none"} />
@@ -76,26 +81,26 @@ export default function PhraseCard({ phrase, onRemove }: PhraseCardProps) {
         </div>
         <div className="pt-2 pb-1 relative">
           <Quote size={16} className="text-[#e9e9e7] absolute -top-1 -left-1" />
-          <h3 className="font-bold text-[#37352f] text-[18px] leading-tight text-center relative z-10">
+          <h3 className={`font-bold text-[#37352f] leading-tight text-center relative z-10 px-4 whitespace-nowrap overflow-hidden text-ellipsis ${textSizeClass}`}>
             {phrase.text}
           </h3>
           <Quote size={16} className="text-[#e9e9e7] absolute -bottom-1 -right-1 rotate-180" />
         </div>
       </div>
       
-      <div className="p-4 flex-1 flex flex-col bg-white">
+      <div className="px-4 py-2 flex-1 flex flex-col bg-white">
         <div className="mt-auto">
           {phrase.examples && phrase.examples.length > 0 ? (
             <div>
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="flex items-center gap-1 text-[11px] font-bold text-[#9ca3af] hover:text-[#787774] transition-colors uppercase tracking-wider mb-2"
+                className="flex items-center gap-1 text-[11px] font-bold text-[#9ca3af] hover:text-[#787774] transition-colors uppercase tracking-wider"
               >
                 抽出元の行例 ({phrase.examples.length})
                 {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
               </button>
               {isExpanded && (
-                <ul className="space-y-1.5 mt-2">
+                <ul className="space-y-1 mt-1.5">
                   {phrase.examples.map((ex, i) => (
                     <li key={i} className="text-[12px] text-[#787774] font-medium flex items-start gap-1.5">
                       <span className="text-[#c4c4c2] mt-0.5">•</span>

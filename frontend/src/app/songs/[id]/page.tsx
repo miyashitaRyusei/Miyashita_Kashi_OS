@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Music, Clock, Copy, Check } from "lucide-react";
+import { ArrowLeft, Music, Clock, Copy, Check, Rewind, Play, FastForward, Shuffle, Smile, Meh, Frown } from "lucide-react";
 import type { SongWithDetails } from "@/lib/api";
 import { fetchSongById } from "@/lib/api";
 import { formatSongAsMarkdown, copyToClipboard } from "@/lib/export";
@@ -13,11 +13,11 @@ import SectionTrajectoryChart from "@/components/song-detail/SectionTrajectoryCh
 // 定数
 // ============================================
 
-const TIMELINE_LABELS: Record<string, { text: string; icon: string }> = {
-  past: { text: "過去", icon: "⏪" },
-  present: { text: "現在", icon: "▶️" },
-  future: { text: "未来", icon: "⏩" },
-  mixed: { text: "混合", icon: "🔀" },
+const TIMELINE_LABELS: Record<string, { text: string; icon: React.ReactNode }> = {
+  past: { text: "過去", icon: <Rewind size={20} className="text-[#9ca3af]" /> },
+  present: { text: "現在", icon: <Play size={20} className="text-[#9ca3af]" /> },
+  future: { text: "未来", icon: <FastForward size={20} className="text-[#9ca3af]" /> },
+  mixed: { text: "混合", icon: <Shuffle size={20} className="text-[#9ca3af]" /> },
 };
 
 const COLLOQUIAL_STYLES: Record<string, { text: string; color: string }> = {
@@ -113,10 +113,10 @@ export default function SongDetailPage() {
 
   const sentimentEmoji =
     (song.sentiment_score ?? 0) > 0.3
-      ? "😊"
+      ? <Smile size={24} className="text-emerald-500" />
       : (song.sentiment_score ?? 0) < -0.3
-      ? "😢"
-      : "😐";
+      ? <Frown size={24} className="text-blue-500" />
+      : <Meh size={24} className="text-amber-500" />;
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -180,7 +180,7 @@ export default function SongDetailPage() {
               感情極性
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xl">{sentimentEmoji}</span>
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-50">{sentimentEmoji}</div>
               <span className="text-2xl font-bold text-[#37352f] font-mono">
                 {song.sentiment_score !== null
                   ? `${song.sentiment_score > 0 ? "+" : ""}${song.sentiment_score.toFixed(2)}`
@@ -212,7 +212,7 @@ export default function SongDetailPage() {
             {song.timeline ? (
               <>
                 <div className="text-2xl font-bold text-[#37352f] flex items-center gap-2">
-                  {TIMELINE_LABELS[song.timeline]?.icon || "🕰️"}
+                  {TIMELINE_LABELS[song.timeline]?.icon || <Clock size={20} className="text-[#9ca3af]" />}
                   <span className="text-[18px]">
                     {TIMELINE_LABELS[song.timeline]?.text || song.timeline}
                   </span>

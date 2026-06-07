@@ -298,12 +298,13 @@ class DictionaryPreferenceRequest(BaseModel):
     item_key: str
     is_favorite: bool
     is_deleted: bool
+    memo: Optional[str] = None
 
 @app.post("/api/dictionary-preferences")
 async def update_dictionary_preference(req: DictionaryPreferenceRequest):
     """辞書アイテムのお気に入り・削除状態を更新する"""
     try:
-        db.set_dictionary_preference(req.item_type, req.item_key, req.is_favorite, req.is_deleted)
+        db.set_dictionary_preference(req.item_type, req.item_key, req.is_favorite, req.is_deleted, req.memo)
         return {"success": True}
     except Exception as e:
         traceback.print_exc()
@@ -332,6 +333,64 @@ async def get_lyric_rules_api(is_liked: Optional[bool] = None):
 async def get_phrases_api(is_liked: Optional[bool] = None):
     try:
         return {"phrases": db.get_lyric_phrases(is_liked)}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================
+# Draft API
+# ============================================
+
+class DraftCreateRequest(BaseModel):
+    title: str
+    content: str
+
+class DraftUpdateRequest(BaseModel):
+    title: str
+    content: str
+
+@app.get("/api/drafts")
+async def get_drafts_api():
+    try:
+        return {"drafts": db.get_drafts()}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/drafts/{draft_id}")
+async def get_draft_api(draft_id: str):
+    try:
+        draft = db.get_draft(draft_id)
+        if not draft:
+            raise HTTPException(status_code=404, detail="Draft not found")
+        return draft
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/drafts")
+async def create_draft_api(req: DraftCreateRequest):
+    try:
+        return db.create_draft(req.title, req.content)
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/drafts/{draft_id}")
+async def update_draft_api(draft_id: str, req: DraftUpdateRequest):
+    try:
+        return db.update_draft(draft_id, req.title, req.content)
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/drafts/{draft_id}")
+async def delete_draft_api(draft_id: str):
+    try:
+        db.delete_draft(draft_id)
+        return {"success": True}
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

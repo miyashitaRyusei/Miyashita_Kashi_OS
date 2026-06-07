@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { TrendingUp, Compass } from "lucide-react";
 import type { Section } from "@/types";
 
 interface SectionTrajectoryChartProps {
@@ -106,7 +107,7 @@ export default function SectionTrajectoryChart({
       {/* グラフ1: 感情・具象度・情報密度 */}
       <div className="border border-[#e9e9e7] rounded-lg p-5 bg-[#fbfbfa] hover:border-[#d4d4d2] transition-colors">
         <h3 className="text-[12px] font-bold text-[#9ca3af] uppercase tracking-wider mb-4 flex items-center gap-2">
-          📈 楽曲展開の推移（感情・具象度・情報密度）
+          <TrendingUp size={14} /> 楽曲展開の推移（感情・具象度・情報密度）
         </h3>
         <div className="h-[220px]">
           <ResponsiveContainer width="100%" height="100%">
@@ -131,7 +132,7 @@ export default function SectionTrajectoryChart({
       {/* グラフ2: 時間軸・口語度 */}
       <div className="border border-[#e9e9e7] rounded-lg p-5 bg-[#fbfbfa] hover:border-[#d4d4d2] transition-colors">
         <h3 className="text-[12px] font-bold text-[#9ca3af] uppercase tracking-wider mb-4 flex items-center gap-2">
-          🧭 時間軸・口語度の推移
+          <Compass size={14} /> 時間軸・口語度の推移
         </h3>
         <div className="h-[180px]">
           <ResponsiveContainer width="100%" height="100%">

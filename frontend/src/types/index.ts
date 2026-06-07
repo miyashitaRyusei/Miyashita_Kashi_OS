@@ -55,6 +55,7 @@ export interface SentenceEnding {
   examples: string[];
   created_at: string;
   is_favorite?: boolean;
+  memo?: string;
 }
 
 export interface LyricRule {
@@ -65,6 +66,7 @@ export interface LyricRule {
   examples: string[] | null;
   created_at: string;
   is_favorite?: boolean;
+  memo?: string;
 }
 
 export interface LyricPhrase {
@@ -76,6 +78,7 @@ export interface LyricPhrase {
   examples: string[] | null;
   created_at: string;
   is_favorite?: boolean;
+  memo?: string;
 }
 
 export interface Rhetoric {
@@ -85,4 +88,12 @@ export interface Rhetoric {
   phrase: string;
   reason: string | null;
   created_at: string;
+}
+
+export interface LyricDraft {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
 }

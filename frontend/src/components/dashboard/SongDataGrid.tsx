@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Music, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Music, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Heart } from "lucide-react";
 import type { Song } from "@/types";
 
 // ============================================
@@ -129,61 +129,81 @@ export default function SongDataGrid({
               className="px-3 py-2.5 font-medium cursor-pointer group hover:text-[#37352f]"
               onClick={() => handleSort("title")}
             >
-              タイトル <SortIcon columnKey="title" />
+              <div className="flex items-center justify-center gap-1" title="楽曲のタイトル">
+                タイトル <SortIcon columnKey="title" />
+              </div>
             </th>
             <th 
               className="px-3 py-2.5 font-medium cursor-pointer group hover:text-[#37352f]"
               onClick={() => handleSort("artist")}
             >
-              アーティスト <SortIcon columnKey="artist" />
+              <div className="flex items-center justify-center gap-1" title="アーティスト名">
+                アーティスト <SortIcon columnKey="artist" />
+              </div>
             </th>
             <th 
-              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              className="px-3 py-2.5 font-medium cursor-pointer group hover:text-[#37352f]"
               onClick={() => handleSort("sentiment_score")}
             >
-              感情 <SortIcon columnKey="sentiment_score" />
+              <div className="flex items-center justify-center gap-1" title="マイナス: 絶望・悲哀 〜 プラス: 歓喜・高揚">
+                感情 <SortIcon columnKey="sentiment_score" />
+              </div>
             </th>
             <th 
-              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              className="px-3 py-2.5 font-medium cursor-pointer group hover:text-[#37352f]"
               onClick={() => handleSort("abstract_balance_score")}
             >
-              抽象/具体 <SortIcon columnKey="abstract_balance_score" />
+              <div className="flex items-center justify-center gap-1" title="1(少ない): 抽象的・概念的 〜 4(多い): 具象的・風景描写">
+                抽象/具体 <SortIcon columnKey="abstract_balance_score" />
+              </div>
             </th>
             <th 
-              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              className="px-3 py-2.5 font-medium cursor-pointer group hover:text-[#37352f]"
               onClick={() => handleSort("perspective_score")}
             >
-              視点 <SortIcon columnKey="perspective_score" />
+              <div className="flex items-center justify-center gap-1" title="マイナス: ミクロ(自分の半径1m) 〜 プラス: マクロ(社会や宇宙)">
+                視点 <SortIcon columnKey="perspective_score" />
+              </div>
             </th>
             <th 
-              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              className="px-3 py-2.5 font-medium cursor-pointer group hover:text-[#37352f]"
               onClick={() => handleSort("narrative_score")}
             >
-              物語性 <SortIcon columnKey="narrative_score" />
+              <div className="flex items-center justify-center gap-1" title="マイナス: 叙情的(一瞬の情景) 〜 プラス: ストーリー(起承転結が明確)">
+                物語性 <SortIcon columnKey="narrative_score" />
+              </div>
             </th>
             <th 
-              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              className="px-3 py-2.5 font-medium cursor-pointer group hover:text-[#37352f]"
               onClick={() => handleSort("cynicism_score")}
             >
-              皮肉度 <SortIcon columnKey="cynicism_score" />
+              <div className="flex items-center justify-center gap-1" title="マイナス: 純粋・ストレート 〜 プラス: 皮肉・自嘲的・ひねくれ">
+                皮肉度 <SortIcon columnKey="cynicism_score" />
+              </div>
             </th>
             <th 
-              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              className="px-3 py-2.5 font-medium cursor-pointer group hover:text-[#37352f]"
               onClick={() => handleSort("colloquial_level")}
             >
-              口語度 <SortIcon columnKey="colloquial_level" />
+              <div className="flex items-center justify-center gap-1" title="言葉遣いの口語度（口語 / 中間 / 詩的）">
+                口語度 <SortIcon columnKey="colloquial_level" />
+              </div>
             </th>
             <th 
-              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              className="px-3 py-2.5 font-medium cursor-pointer group hover:text-[#37352f]"
               onClick={() => handleSort("information_density")}
             >
-              密度 <SortIcon columnKey="information_density" />
+              <div className="flex items-center justify-center gap-1" title="歌詞全体の文字数に対する自立語の割合（密度）">
+                密度 <SortIcon columnKey="information_density" />
+              </div>
             </th>
             <th 
-              className="px-3 py-2.5 font-medium text-center cursor-pointer group hover:text-[#37352f]"
+              className="px-3 py-2.5 font-medium cursor-pointer group hover:text-[#37352f]"
               onClick={() => handleSort("is_liked")}
             >
-              Like <SortIcon columnKey="is_liked" />
+              <div className="flex items-center justify-center gap-1" title="お気に入り登録した曲">
+                Like <SortIcon columnKey="is_liked" />
+              </div>
             </th>
             <th className="px-3 py-2.5 w-12 text-center"></th>
           </tr>
@@ -285,7 +305,7 @@ export default function SongDataGrid({
                       onClick={() => onToggleLike(song.id, !song.is_liked)}
                       className="text-base hover:scale-110 transition-transform"
                     >
-                      {song.is_liked ? "❤️" : "🤍"}
+                      {song.is_liked ? <Heart size={16} fill="currentColor" className="text-pink-500" /> : <Heart size={16} className="text-[#d4d4d2]" />}
                     </button>
                   </td>
 

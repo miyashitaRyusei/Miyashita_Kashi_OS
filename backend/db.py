@@ -228,6 +228,16 @@ def get_song_by_id(song_id: str) -> Optional[dict]:
 def delete_song(song_id: str) -> bool:
     """楽曲を削除する"""
     sb = get_supabase()
+    
+    # 関連データの明示的削除 (ON DELETE CASCADE 設定漏れによる孤児データ化を防ぐため)
+    try:
+        sb.table("lyric_rules").delete().eq("song_id", song_id).execute()
+        sb.table("lyric_phrases").delete().eq("song_id", song_id).execute()
+        sb.table("sentence_endings").delete().eq("song_id", song_id).execute()
+        sb.table("sections").delete().eq("song_id", song_id).execute()
+    except Exception as e:
+        print(f"Warning: 子レコード削除中にエラー (song_id={song_id}): {e}")
+
     result = sb.table("songs").delete().eq("id", song_id).execute()
     return len(result.data) > 0
 
@@ -271,21 +281,23 @@ def _get_preferences(item_type: str) -> dict:
     res = sb.table("user_dictionary_preferences").select("*").eq("item_type", item_type).execute()
     return {row["item_key"]: row for row in res.data}
 
-def set_dictionary_preference(item_type: str, item_key: str, is_favorite: bool, is_deleted: bool):
+def set_dictionary_preference(item_type: str, item_key: str, is_favorite: bool, is_deleted: bool, memo: str = None):
     sb = get_supabase()
     res = sb.table("user_dictionary_preferences").select("id").eq("item_type", item_type).eq("item_key", item_key).execute()
+    
+    payload = {
+        "is_favorite": is_favorite,
+        "is_deleted": is_deleted
+    }
+    if memo is not None:
+        payload["memo"] = memo
+
     if res.data:
-        sb.table("user_dictionary_preferences").update({
-            "is_favorite": is_favorite,
-            "is_deleted": is_deleted
-        }).eq("id", res.data[0]["id"]).execute()
+        sb.table("user_dictionary_preferences").update(payload).eq("id", res.data[0]["id"]).execute()
     else:
-        sb.table("user_dictionary_preferences").insert({
-            "item_type": item_type,
-            "item_key": item_key,
-            "is_favorite": is_favorite,
-            "is_deleted": is_deleted
-        }).execute()
+        payload["item_type"] = item_type
+        payload["item_key"] = item_key
+        sb.table("user_dictionary_preferences").insert(payload).execute()
 
 def get_sentence_endings(is_liked: Optional[bool] = None) -> list:
     sb = get_supabase()
@@ -318,6 +330,7 @@ def get_sentence_endings(is_liked: Optional[bool] = None) -> list:
         if pref.get("is_deleted"):
             continue
         ending["is_favorite"] = pref.get("is_favorite", False)
+        ending["memo"] = pref.get("memo")
         final_list.append(ending)
 
     # 出現回数で降順ソート
@@ -339,6 +352,7 @@ def get_lyric_rules(is_liked: Optional[bool] = None) -> list:
         if pref.get("is_deleted"):
             continue
         row["is_favorite"] = pref.get("is_favorite", False)
+        row["memo"] = pref.get("memo")
         final_list.append(row)
         
     return sorted(final_list, key=lambda x: x.get("is_favorite", False), reverse=True)
@@ -382,7 +396,44 @@ def get_lyric_phrases(is_liked: Optional[bool] = None) -> list:
         if pref.get("is_deleted"):
             continue
         phrase["is_favorite"] = pref.get("is_favorite", False)
+        phrase["memo"] = pref.get("memo")
         final_list.append(phrase)
 
     sorted_phrases = sorted(final_list, key=lambda x: (x.get("is_favorite", False), x["appearance_count"]), reverse=True)
     return sorted_phrases
+
+# ============================================
+# Draft (作詞草案エディタ)
+# ============================================
+
+def get_drafts() -> list:
+    sb = get_supabase()
+    res = sb.table("lyric_drafts").select("id, title, updated_at").order("updated_at", desc=True).execute()
+    return res.data
+
+def get_draft(draft_id: str) -> dict:
+    sb = get_supabase()
+    res = sb.table("lyric_drafts").select("*").eq("id", draft_id).execute()
+    return res.data[0] if res.data else None
+
+def create_draft(title: str, content: str) -> dict:
+    sb = get_supabase()
+    res = sb.table("lyric_drafts").insert({
+        "title": title,
+        "content": content
+    }).execute()
+    return res.data[0] if res.data else None
+
+def update_draft(draft_id: str, title: str, content: str) -> dict:
+    sb = get_supabase()
+    res = sb.table("lyric_drafts").update({
+        "title": title,
+        "content": content,
+        "updated_at": "now()"
+    }).eq("id", draft_id).execute()
+    return res.data[0] if res.data else None
+
+def delete_draft(draft_id: str):
+    sb = get_supabase()
+    sb.table("lyric_drafts").delete().eq("id", draft_id).execute()
+

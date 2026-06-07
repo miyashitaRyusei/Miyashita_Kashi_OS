@@ -188,18 +188,57 @@ export async function updateDictionaryPreference(
   itemType: 'phrase' | 'rule' | 'ending',
   itemKey: string,
   isFavorite: boolean,
-  isDeleted: boolean
+  isDeleted: boolean,
+  memo?: string
 ) {
+  const bodyData: any = {
+    item_type: itemType,
+    item_key: itemKey,
+    is_favorite: isFavorite,
+    is_deleted: isDeleted,
+  };
+  if (memo !== undefined) {
+    bodyData.memo = memo;
+  }
+
   const res = await fetch(`${API_BASE}/api/dictionary-preferences`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      item_type: itemType,
-      item_key: itemKey,
-      is_favorite: isFavorite,
-      is_deleted: isDeleted,
-    }),
+    body: JSON.stringify(bodyData),
   });
   if (!res.ok) throw new Error("Failed to update dictionary preference");
   return res.json();
+}
+
+// ============================================
+// Drafts API
+// ============================================
+
+export async function fetchDrafts(): Promise<LyricDraft[]> {
+  const data = await fetchAPI<{ drafts: LyricDraft[] }>("/api/drafts");
+  return data.drafts;
+}
+
+export async function fetchDraft(draftId: string): Promise<LyricDraft> {
+  return await fetchAPI<LyricDraft>(`/api/drafts/${draftId}`);
+}
+
+export async function createDraft(title: string, content: string): Promise<LyricDraft> {
+  return await fetchAPI<LyricDraft>("/api/drafts", {
+    method: "POST",
+    body: JSON.stringify({ title, content }),
+  });
+}
+
+export async function updateDraft(draftId: string, title: string, content: string): Promise<LyricDraft> {
+  return await fetchAPI<LyricDraft>(`/api/drafts/${draftId}`, {
+    method: "PUT",
+    body: JSON.stringify({ title, content }),
+  });
+}
+
+export async function deleteDraft(draftId: string): Promise<{ success: boolean }> {
+  return await fetchAPI<{ success: boolean }>(`/api/drafts/${draftId}`, {
+    method: "DELETE",
+  });
 }

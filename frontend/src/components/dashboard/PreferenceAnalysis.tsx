@@ -16,6 +16,7 @@ import {
   Tooltip,
   Legend
 } from "recharts";
+import { Sparkles, Lightbulb } from "lucide-react";
 import type { Song } from "@/types";
 
 // ============================================
@@ -146,16 +147,16 @@ export default function PreferenceAnalysis({ songs }: PreferenceAnalysisProps) {
     <div className="border border-[#e9e9e7] rounded-lg p-6 bg-[#fbfbfa] mt-6">
       <div className="mb-6">
         <h3 className="text-lg font-bold text-[#37352f] flex items-center gap-2">
-          ✨ Like傾向分析 (Your Preferences)
+          <Sparkles size={18} className="text-emerald-500" /> Like傾向分析 (Your Preferences)
         </h3>
         <p className="text-[13px] text-[#787774] mt-1">
-          あなたが「Like（❤️）」した曲と、そうでない曲の平均的なDNAスコアを比較します。
+          あなたが「Like」した曲と、そうでない曲の平均的なDNAスコアを比較します。
         </p>
       </div>
 
       {likedSongs.length === 0 ? (
         <div className="text-center py-10 text-[#787774] bg-white rounded-lg border border-[#e9e9e7]">
-          まだLikeされた曲がありません。リストから好きな曲に❤️をつけてみてください！
+          まだLikeされた曲がありません。リストから好きな曲に「Like」をつけてみてください！
         </div>
       ) : (
         <div className="flex flex-col lg:flex-row gap-8">
@@ -186,7 +187,7 @@ export default function PreferenceAnalysis({ songs }: PreferenceAnalysisProps) {
             {/* インサイトパネル */}
             <div className="bg-[#f0fdf4] border border-[#bbf7d0] p-4 rounded-lg text-[#166534] text-[13px]">
               <div className="font-bold mb-1 flex items-center gap-1.5">
-                💡 AI インサイト
+                <Lightbulb size={16} /> AI インサイト
               </div>
               <p>{insights || "比較データが不足しています。"}</p>
             </div>

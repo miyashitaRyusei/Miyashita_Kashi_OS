@@ -12,14 +12,16 @@ export default function EndingsPage() {
   const [endings, setEndings] = useState<SentenceEnding[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("");
-  const [likeFilter, setLikeFilter] = useState<'all' | 'liked' | 'unliked'>('all');
+  const [likeFilter, setLikeFilter] = useState<'all' | 'favorites'>('all');
+  const [songLikeFilter, setSongLikeFilter] = useState<'all' | 'liked' | 'unliked'>('all');
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     let isLikedParam: boolean | undefined = undefined;
-    if (likeFilter === 'liked') isLikedParam = true;
-    if (likeFilter === 'unliked') isLikedParam = false;
+    if (songLikeFilter === 'liked') isLikedParam = true;
+    if (songLikeFilter === 'unliked') isLikedParam = false;
     loadEndings(isLikedParam);
-  }, [likeFilter]);
+  }, [songLikeFilter]);
 
   const loadEndings = async (isLiked?: boolean) => {
     setLoading(true);
@@ -35,9 +37,12 @@ export default function EndingsPage() {
 
   const categories = Array.from(new Set(endings.map(e => e.category))).filter((c): c is string => Boolean(c));
   
-  const filteredEndings = activeCategory 
-    ? endings.filter(e => e.category === activeCategory)
-    : endings;
+  const filteredEndings = endings.filter(e => {
+    if (activeCategory && e.category !== activeCategory) return false;
+    if (likeFilter === 'favorites' && !e.is_favorite) return false;
+    if (searchQuery && !e.ending_text.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -46,23 +51,34 @@ export default function EndingsPage() {
           <div>
             <h1 className="text-2xl font-bold text-[#37352f] flex items-center gap-2.5">
               <BookType size={22} className="text-[#787774]" />
-              文末表現ディクショナリ
+              文末表現辞書
             </h1>
             <p className="text-[13px] text-[#9ca3af] mt-1">
               作詞によく使われる文末表現とレトリックのパターン辞典。
             </p>
           </div>
           
-          {/* Likeフィルター */}
-          <select
-            value={likeFilter}
-            onChange={(e) => setLikeFilter(e.target.value as any)}
-            className="px-3 py-2 text-[13px] font-medium rounded-lg border border-[#e9e9e7] bg-white text-[#37352f] focus:outline-none focus:ring-2 focus:ring-[#e9e9e7] cursor-pointer self-start"
-          >
-            <option value="all">すべての曲</option>
-            <option value="liked">❤️ Likeした曲のみ</option>
-            <option value="unliked">🤍 Likeしてない曲</option>
-          </select>
+          {/* フィルター群 */}
+          <div className="flex flex-col sm:flex-row items-end gap-2">
+            <select
+              value={songLikeFilter}
+              onChange={(e) => setSongLikeFilter(e.target.value as any)}
+              className="px-3 py-2 text-[13px] font-medium rounded-lg border border-[#e9e9e7] bg-white text-[#37352f] focus:outline-none focus:ring-2 focus:ring-[#e9e9e7] cursor-pointer"
+            >
+              <option value="all">すべての曲から</option>
+              <option value="liked">Likeした曲から</option>
+              <option value="unliked">Likeしてない曲から</option>
+            </select>
+            
+            <select
+              value={likeFilter}
+              onChange={(e) => setLikeFilter(e.target.value as any)}
+              className="px-3 py-2 text-[13px] font-medium rounded-lg border border-[#e9e9e7] bg-white text-[#37352f] focus:outline-none focus:ring-2 focus:ring-[#e9e9e7] cursor-pointer"
+            >
+              <option value="all">すべての文末表現</option>
+              <option value="favorites">お気に入りのみ</option>
+            </select>
+          </div>
         </div>
 
         {loading ? (
@@ -71,6 +87,16 @@ export default function EndingsPage() {
           </div>
         ) : (
           <>
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="文末表現を検索..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-2 text-[14px] rounded-lg border border-[#e9e9e7] bg-white text-[#37352f] focus:outline-none focus:ring-2 focus:ring-[#e9e9e7]"
+              />
+            </div>
+            
             <div className="mb-6">
               <EndingCategoryTabs 
                 categories={categories} 

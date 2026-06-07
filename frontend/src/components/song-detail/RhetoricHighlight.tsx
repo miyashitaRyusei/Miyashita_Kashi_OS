@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { Rhetoric } from "@/types";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Lightbulb } from "lucide-react";
 import { updateRhetoricContent } from "@/lib/api";
 
 // ============================================
@@ -124,7 +124,7 @@ export default function RhetoricHighlight({
               if (editingId !== r.id) startEditing(r);
             }}
           >
-            <span className="text-[#c4c4c2] flex-shrink-0 mt-0.5">💡</span>
+            <span className="text-[#c4c4c2] flex-shrink-0 mt-0.5"><Lightbulb size={14} /></span>
             
             {editingId === r.id ? (
               <div className="w-full">

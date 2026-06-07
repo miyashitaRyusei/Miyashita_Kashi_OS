@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Search, Heart } from "lucide-react";
 
 // ============================================
 // 型定義
@@ -45,25 +45,32 @@ export default function SongFilterBar({
 
       {/* Like フィルタ */}
       <div className="flex items-center border border-[#e9e9e7] rounded-md overflow-hidden">
-        {[
-          { value: null, label: "All" },
-          { value: true, label: "❤️ Like" },
-          { value: false, label: "🤍" },
-        ].map((opt) => (
-          <button
-            key={String(opt.value)}
-            onClick={() =>
-              onFilterChange({ ...filters, isLiked: opt.value as boolean | null })
-            }
-            className={`px-2.5 py-1.5 text-[12px] transition-colors ${
-              filters.isLiked === opt.value
-                ? "bg-[#37352f] text-white"
-                : "bg-white text-[#787774] hover:bg-[#efefed]"
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
+        <button
+          onClick={() => onFilterChange({ ...filters, isLiked: null })}
+          className={`px-3 py-1.5 text-[12px] font-bold transition-colors ${
+            filters.isLiked === null ? "bg-[#37352f] text-white" : "bg-white text-[#787774] hover:bg-[#fbfbfa]"
+          }`}
+        >
+          All
+        </button>
+        <button
+          onClick={() => onFilterChange({ ...filters, isLiked: true })}
+          className={`px-3 py-1.5 text-[12px] flex items-center gap-1.5 font-bold transition-colors border-l border-[#e9e9e7] ${
+            filters.isLiked === true ? "bg-[#37352f] text-white" : "bg-white text-[#787774] hover:bg-[#fbfbfa]"
+          }`}
+        >
+          <Heart size={14} fill={filters.isLiked === true ? "currentColor" : "none"} className={filters.isLiked === true ? "text-pink-500" : "opacity-40"} />
+          Like
+        </button>
+        <button
+          onClick={() => onFilterChange({ ...filters, isLiked: false })}
+          className={`px-3 py-1.5 text-[12px] flex items-center gap-1.5 font-bold transition-colors border-l border-[#e9e9e7] ${
+            filters.isLiked === false ? "bg-[#37352f] text-white" : "bg-white text-[#787774] hover:bg-[#fbfbfa]"
+          }`}
+        >
+          <Heart size={14} className="opacity-40" />
+          Unliked
+        </button>
       </div>
 
       {/* アーティストフィルタ */}

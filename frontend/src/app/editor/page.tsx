@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { PenLine, Sparkles, Lightbulb, Music } from "lucide-react";
+import { PenLine, Sparkles, Lightbulb, Music, AlertTriangle, Loader2 } from "lucide-react";
 import { analyzeLyrics, getSongStatus } from "@/lib/api";
 
 export default function EditorPage() {
@@ -204,7 +204,7 @@ export default function EditorPage() {
     return (
       <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center bg-[#fbfbfa]">
         <div className="max-w-md w-full bg-white border border-[#e9e9e7] rounded-xl p-8 text-center shadow-sm">
-          <div className="w-12 h-12 border-[3px] border-[#d4d4d2] border-t-[#37352f] rounded-full animate-spin mx-auto mb-6" />
+          <Loader2 size={32} className="animate-spin text-emerald-500 mx-auto mb-6" />
           <h2 className="text-[18px] font-bold text-[#37352f] mb-2">Gemini推論中...</h2>
           <p className="text-[13px] text-[#787774] mb-6 leading-relaxed">
             作詞ルールとレトリックを抽出しています。<br/>
@@ -228,7 +228,10 @@ export default function EditorPage() {
       <div className="w-full max-w-3xl">
         {pollingError && (
           <div className="mb-6 bg-red-50 text-red-600 border border-red-200 rounded-lg p-4 text-[13px] flex items-center justify-between">
-            <span>⚠️ {pollingError}</span>
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} />
+              <span>{pollingError}</span>
+            </div>
             <button onClick={() => setPollingError(null)} className="font-bold">×</button>
           </div>
         )}
@@ -305,7 +308,7 @@ export default function EditorPage() {
         <button
           onClick={handleAnalyze}
           disabled={isAnalyzing || !lyrics.trim()}
-          className="flex items-center gap-2.5 bg-[#37352f] text-white px-6 py-3 rounded-full shadow-lg text-[14px] font-medium hover:bg-black hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-lg transition-all duration-200"
+          className="flex items-center gap-2.5 bg-emerald-600 text-white px-6 py-3 rounded-full shadow-lg text-[14px] font-medium hover:bg-emerald-700 hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-lg transition-all duration-200"
         >
           {isAnalyzing ? (
             <>

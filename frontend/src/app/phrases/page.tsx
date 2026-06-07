@@ -15,14 +15,16 @@ export default function PhrasesPage() {
   const [loading, setLoading] = useState(true);
   const [activeType, setActiveType] = useState<'start' | 'end'>('start');
   const [activeCategory, setActiveCategory] = useState<string>('すべて');
-  const [likeFilter, setLikeFilter] = useState<'all' | 'liked' | 'unliked'>('all');
+  const [songLikeFilter, setSongLikeFilter] = useState<'all' | 'liked' | 'unliked'>('all');
+  const [cardLikeFilter, setCardLikeFilter] = useState<'all' | 'favorites'>('all');
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     let isLikedParam: boolean | undefined = undefined;
-    if (likeFilter === 'liked') isLikedParam = true;
-    if (likeFilter === 'unliked') isLikedParam = false;
+    if (songLikeFilter === 'liked') isLikedParam = true;
+    if (songLikeFilter === 'unliked') isLikedParam = false;
     loadPhrases(isLikedParam);
-  }, [likeFilter]);
+  }, [songLikeFilter]);
 
   const loadPhrases = async (isLiked?: boolean) => {
     setLoading(true);
@@ -39,10 +41,13 @@ export default function PhrasesPage() {
   // 1. タイプで絞り込み
   const typeFiltered = phrases.filter(p => p.phrase_type === activeType);
   
-  // 2. カテゴリで絞り込み
-  const finalFiltered = activeCategory === 'すべて' 
-    ? typeFiltered 
-    : typeFiltered.filter(p => p.category === activeCategory);
+  // 2. カテゴリ・お気に入り・検索で絞り込み
+  const finalFiltered = typeFiltered.filter(p => {
+    if (activeCategory !== 'すべて' && p.category !== activeCategory) return false;
+    if (cardLikeFilter === 'favorites' && !p.is_favorite) return false;
+    if (searchQuery && !p.text.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
 
   const categories = activeType === 'start' ? START_CATEGORIES : END_CATEGORIES;
 
@@ -65,17 +70,29 @@ export default function PhrasesPage() {
             </p>
           </div>
           
-          <div className="flex items-center gap-3 self-start">
-            {/* Likeフィルター */}
-            <select
-              value={likeFilter}
-              onChange={(e) => setLikeFilter(e.target.value as any)}
-              className="px-3 py-2 text-[13px] font-medium rounded-lg border border-[#e9e9e7] bg-white text-[#37352f] focus:outline-none focus:ring-2 focus:ring-[#e9e9e7] cursor-pointer"
-            >
-              <option value="all">すべての曲</option>
-              <option value="liked">❤️ Likeした曲のみ</option>
-              <option value="unliked">🤍 Likeしてない曲</option>
-            </select>
+          <div className="flex flex-col sm:flex-row items-end gap-3 self-start">
+            <div className="flex gap-2">
+              {/* 楽曲Likeフィルター */}
+              <select
+                value={songLikeFilter}
+                onChange={(e) => setSongLikeFilter(e.target.value as any)}
+                className="px-3 py-2 text-[13px] font-medium rounded-lg border border-[#e9e9e7] bg-white text-[#37352f] focus:outline-none focus:ring-2 focus:ring-[#e9e9e7] cursor-pointer"
+              >
+                <option value="all">すべての曲から</option>
+                <option value="liked">Likeした曲から</option>
+                <option value="unliked">Likeしてない曲から</option>
+              </select>
+
+              {/* カードお気に入りフィルター */}
+              <select
+                value={cardLikeFilter}
+                onChange={(e) => setCardLikeFilter(e.target.value as any)}
+                className="px-3 py-2 text-[13px] font-medium rounded-lg border border-[#e9e9e7] bg-white text-[#37352f] focus:outline-none focus:ring-2 focus:ring-[#e9e9e7] cursor-pointer"
+              >
+                <option value="all">すべてのフレーズ</option>
+                <option value="favorites">お気に入りのみ</option>
+              </select>
+            </div>
 
             {/* 大トグル: 書き出し / 書き終わり */}
             <div className="flex bg-[#efefed] p-1 rounded-lg">
@@ -103,16 +120,27 @@ export default function PhrasesPage() {
           </div>
         </div>
 
+        {/* 検索バー */}
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder="フレーズを検索..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-4 py-2 text-[14px] rounded-lg border border-[#e9e9e7] bg-white text-[#37352f] focus:outline-none focus:ring-2 focus:ring-[#e9e9e7]"
+          />
+        </div>
+
         {/* タグフィルターバー */}
-        <div className="flex flex-wrap gap-2 mb-8 p-3 bg-[#fbfbfa] rounded-lg border border-[#e9e9e7]">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#e9e9e7] mb-6">
           {categories.map(cat => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors ${
+              className={`px-3 py-1.5 text-[13px] rounded-md transition-colors whitespace-nowrap ${
                 activeCategory === cat
-                  ? 'bg-[#37352f] text-white border border-[#37352f]'
-                  : 'bg-white text-[#787774] border border-[#e9e9e7] hover:border-[#d4d4d2] hover:bg-[#efefed]'
+                  ? "bg-[#37352f] text-white font-medium"
+                  : "text-[#787774] hover:bg-[#fbfbfa]"
               }`}
             >
               {cat}
