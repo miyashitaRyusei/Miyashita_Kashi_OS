@@ -79,6 +79,9 @@ class SongLLMResponse(BaseModel):
     timeline: str                   # "past" | "present" | "future" | "mixed"
     abstract_balance_score: int     # 1〜4
     colloquial_level: str           # "colloquial" | "intermediate" | "poetic"
+    perspective_score: float        # -1.0（極めてミクロ）〜 1.0（極めてマクロ）
+    narrative_score: float          # -1.0（一瞬の情景・叙情）〜 1.0（明確なストーリー）
+    cynicism_score: float           # -1.0（完全に純粋・ストレート）〜 1.0（極めて皮肉・ひねくれ）
     ending_classifications: list[EndingClassification]
     phrase_classifications: list[PhraseClassification]
     extracted_rules: list[ExtractedRule]
@@ -137,6 +140,9 @@ SONG_ANALYSIS_PROMPT = """あなたはプロの作詞アナリストです。
   - "colloquial": 話し言葉に近い（「じゃん」「だよね」等を多用）
   - "intermediate": 話し言葉と書き言葉の中間
   - "poetic": 文語・詩的表現が主体
+- perspective_score: 視点の広さを -1.0（極めてミクロ・自分の半径1m）〜 1.0（極めてマクロ・社会や宇宙）の小数で判定すること。
+- narrative_score: 物語性を -1.0（一瞬の感情や情景の切り取り・叙情的）〜 1.0（時間の進行や起承転結が明確なストーリー）の小数で判定すること。
+- cynicism_score: 皮肉度を -1.0（純粋・ストレートな表現）〜 1.0（極めて皮肉・自嘲的・ひねくれている）の小数で判定すること。
 
 ## 文末表現の分類ルール (ending_classifications)
 - 以下の「Python解析で抽出された文末表現リスト」の各項目を、下記カテゴリのいずれかに分類すること。

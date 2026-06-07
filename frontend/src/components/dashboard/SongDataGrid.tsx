@@ -89,6 +89,9 @@ export default function SongDataGrid({
             <th className="px-3 py-2.5 font-medium">アーティスト</th>
             <th className="px-3 py-2.5 font-medium text-center">感情</th>
             <th className="px-3 py-2.5 font-medium text-center">抽象/具体</th>
+            <th className="px-3 py-2.5 font-medium text-center">視点</th>
+            <th className="px-3 py-2.5 font-medium text-center">物語性</th>
+            <th className="px-3 py-2.5 font-medium text-center">皮肉度</th>
             <th className="px-3 py-2.5 font-medium text-center">口語度</th>
             <th className="px-3 py-2.5 font-medium text-center">密度</th>
             <th className="px-3 py-2.5 font-medium text-center">Like</th>
@@ -152,6 +155,17 @@ export default function SongDataGrid({
                     ) : (
                       <span className="text-[#d4d4d2]">—</span>
                     )}
+                  </td>
+
+                  {/* 新しいスコア */}
+                  <td className="px-3 py-2.5 text-center text-[#787774] font-mono text-[11px]">
+                    {typeof song.perspective_score === 'number' ? song.perspective_score.toFixed(2) : "—"}
+                  </td>
+                  <td className="px-3 py-2.5 text-center text-[#787774] font-mono text-[11px]">
+                    {typeof song.narrative_score === 'number' ? song.narrative_score.toFixed(2) : "—"}
+                  </td>
+                  <td className="px-3 py-2.5 text-center text-[#787774] font-mono text-[11px]">
+                    {typeof song.cynicism_score === 'number' ? song.cynicism_score.toFixed(2) : "—"}
                   </td>
 
                   {/* 口語度バッジ */}

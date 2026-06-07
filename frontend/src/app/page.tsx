@@ -30,6 +30,9 @@ const AXIS_OPTIONS = [
   { value: "abstract_balance_score", label: "抽象/具体バランス" },
   { value: "information_density", label: "情報密度" },
   { value: "sentiment_score", label: "感情スコア" },
+  { value: "perspective_score", label: "視点の広さ (ミクロ/マクロ)" },
+  { value: "narrative_score", label: "物語性 (叙情/ストーリー)" },
+  { value: "cynicism_score", label: "皮肉度 (純粋/ひねくれ)" },
 ];
 
 // ============================================

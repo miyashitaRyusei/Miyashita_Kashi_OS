@@ -10,6 +10,9 @@ export interface Song {
   information_density: number | null;
   colloquial_level: 'colloquial' | 'intermediate' | 'poetic' | null;
   timeline: string | null;
+  perspective_score: number | null;
+  narrative_score: number | null;
+  cynicism_score: number | null;
   analysis_status: 'processing' | 'completed' | 'error';
   is_liked: boolean;
   created_at: string;

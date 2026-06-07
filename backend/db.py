@@ -66,6 +66,9 @@ def save_song_analysis(song_id: str, analysis_result: dict) -> dict:
         "information_density": macro.get("information_density", 0.0),
         "colloquial_level": analysis_result.get("colloquial_level", None),
         "timeline": analysis_result.get("timeline", None),
+        "perspective_score": analysis_result.get("perspective_score", 0.0),
+        "narrative_score": analysis_result.get("narrative_score", 0.0),
+        "cynicism_score": analysis_result.get("cynicism_score", 0.0),
     }
 
     sb.table("songs").update(song_record).eq("id", song_id).execute()
