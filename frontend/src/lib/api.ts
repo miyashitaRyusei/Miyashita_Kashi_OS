@@ -14,6 +14,7 @@ import type {
   LyricRule,
   Rhetoric,
   LyricPhrase,
+  LyricDraft,
 } from "@/types";
 
 // ============================================
