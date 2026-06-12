@@ -74,17 +74,17 @@ export default function EndingCard({ ending, onRemove }: EndingCardProps) {
         </span>
         <button
           onClick={handleFavorite}
-          className={`p-1.5 rounded hover:bg-gray-100 transition-colors ${isFavorite ? 'text-red-500' : 'text-[#d4d4d2]'}`}
+          className={`p-2 sm:p-1.5 rounded hover:bg-gray-100 transition-colors ${isFavorite ? 'text-red-500' : 'text-[#d4d4d2]'}`}
           title="お気に入り"
         >
-          <Heart size={14} fill={isFavorite ? "currentColor" : "none"} />
+          <Heart size={18} className="sm:w-[14px] sm:h-[14px]" fill={isFavorite ? "currentColor" : "none"} />
         </button>
         <button
           onClick={handleDelete}
-          className="p-1.5 rounded hover:bg-gray-100 text-[#d4d4d2] hover:text-red-500 transition-colors"
+          className="p-2 sm:p-1.5 rounded hover:bg-gray-100 text-[#d4d4d2] hover:text-red-500 transition-colors"
           title="非表示にする"
         >
-          <Trash2 size={14} />
+          <Trash2 size={18} className="sm:w-[14px] sm:h-[14px]" />
         </button>
       </div>
     </div>

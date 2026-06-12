@@ -113,8 +113,99 @@ export default function SongDataGrid({
   };
 
   return (
-    <div className="border border-[#e9e9e7] rounded-lg overflow-x-auto max-h-[600px] overflow-y-auto">
-      <table className="w-full text-[13px] text-left whitespace-nowrap">
+    <div className="flex flex-col gap-4">
+      {/* モバイル用: カードビュー */}
+      <div className="md:hidden flex flex-col gap-3 max-h-[calc(100vh-200px)] overflow-y-auto">
+        {sortedSongs.length > 0 ? (
+          sortedSongs.map((song, i) => {
+            const sentiment = scoreBadge(song.sentiment_score);
+            const perspective = scoreBadge(song.perspective_score);
+            const narrative = scoreBadge(song.narrative_score);
+            const cynicism = scoreBadge(song.cynicism_score, true);
+
+            return (
+              <div
+                key={song.id || `mobile-song-${i}`}
+                className="bg-white border border-[#e9e9e7] rounded-xl p-4 flex flex-col gap-3 shadow-sm relative"
+                onClick={() => song.id && router.push(`/songs/${song.id}`)}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-3 overflow-hidden">
+                    <input
+                      type="checkbox"
+                      checked={song.id ? selectedIds.has(song.id) : false}
+                      onChange={() => song.id && handleSelectOne(song.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-1 rounded border-[#d4d4d2] cursor-pointer accent-[#37352f] w-4 h-4"
+                    />
+                    <div className="flex flex-col overflow-hidden">
+                      <span className="font-bold text-[15px] leading-tight text-[#37352f] truncate">
+                        {song.title || "不明"}
+                      </span>
+                      <span className="text-[12px] text-[#787774] mt-0.5 truncate">
+                        {song.artist || "不明"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleLike(song.id, !song.is_liked);
+                      }}
+                      className="p-1"
+                    >
+                      {song.is_liked ? (
+                        <Heart size={20} fill="currentColor" className="text-pink-500" />
+                      ) : (
+                        <Heart size={20} className="text-[#d4d4d2]" />
+                      )}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(song.id);
+                      }}
+                      className="p-1 text-[#d4d4d2] hover:text-red-500"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* スコアバッジ */}
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  <span className={`px-2 py-0.5 rounded border text-[10px] font-medium ${sentiment.cls.split(' ').slice(4).join(' ')}`}>
+                    感情 {sentiment.text}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded border text-[10px] font-medium ${perspective.cls.split(' ').slice(4).join(' ')}`}>
+                    視点 {perspective.text}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded border text-[10px] font-medium ${narrative.cls.split(' ').slice(4).join(' ')}`}>
+                    物語 {narrative.text}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded border text-[10px] font-medium ${cynicism.cls.split(' ').slice(4).join(' ')}`}>
+                    皮肉 {cynicism.text}
+                  </span>
+                  {song.colloquial_level && (
+                    <span className={`px-2 py-0.5 rounded border text-[10px] font-medium ${COLLOQUIAL_BADGE[song.colloquial_level]?.color || "bg-gray-50 text-gray-600 border-gray-200"}`}>
+                      {COLLOQUIAL_BADGE[song.colloquial_level]?.text || song.colloquial_level}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="text-center py-10 text-[#9ca3af] text-[13px]">
+            楽曲データがありません
+          </div>
+        )}
+      </div>
+
+      {/* PC用: テーブルビュー */}
+      <div className="hidden md:block border border-[#e9e9e7] rounded-lg overflow-x-auto max-h-[600px] overflow-y-auto">
+        <table className="w-full text-[13px] text-left whitespace-nowrap">
         <thead className="sticky top-0 z-10 bg-[#fbfbfa] text-[11px] text-[#787774] border-b border-[#e9e9e7] shadow-sm uppercase tracking-wider">
           <tr>
             <th className="px-3 py-2.5 w-10 text-center">
@@ -336,6 +427,7 @@ export default function SongDataGrid({
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

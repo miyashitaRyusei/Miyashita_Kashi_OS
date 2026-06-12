@@ -21,6 +21,7 @@ export default function WritingPage() {
   const [favoriteRules, setFavoriteRules] = useState<LyricRule[]>([]);
   const [activeTab, setActiveTab] = useState<'phrases' | 'rules'>('phrases');
   const [phraseFilter, setPhraseFilter] = useState<'all' | 'start' | 'end'>('all');
+  const [mobileTab, setMobileTab] = useState<"list" | "editor" | "reference">("editor");
 
   useEffect(() => {
     loadInitialData();
@@ -52,6 +53,7 @@ export default function WritingPage() {
     setActiveDraft(draft);
     setTitle(draft.title);
     setContent(draft.content);
+    setMobileTab("editor");
   };
 
   const handleCreateDraft = async () => {
@@ -131,10 +133,17 @@ export default function WritingPage() {
   }
 
   return (
-    <div className="flex-1 flex h-full overflow-hidden bg-[#fbfbfa]">
+    <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden bg-[#fbfbfa]">
       
+      {/* モバイル用タブスイッチャー */}
+      <div className="md:hidden flex border-b border-[#e9e9e7] bg-white flex-shrink-0">
+        <button onClick={() => setMobileTab("list")} className={`flex-1 py-3 text-[13px] font-bold ${mobileTab === 'list' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-[#9ca3af]'}`}>リスト</button>
+        <button onClick={() => setMobileTab("editor")} className={`flex-1 py-3 text-[13px] font-bold ${mobileTab === 'editor' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-[#9ca3af]'}`}>エディタ</button>
+        <button onClick={() => setMobileTab("reference")} className={`flex-1 py-3 text-[13px] font-bold ${mobileTab === 'reference' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-[#9ca3af]'}`}>辞書</button>
+      </div>
+
       {/* 1. 左ペイン: 草案リスト */}
-      <div className="w-64 border-r border-[#e9e9e7] bg-[#fbfbfa] flex flex-col flex-shrink-0">
+      <div className={`${mobileTab === 'list' ? 'flex' : 'hidden'} md:flex w-full md:w-64 border-r border-[#e9e9e7] bg-[#fbfbfa] flex-col flex-shrink-0`}>
         <div className="p-4 border-b border-[#e9e9e7] flex items-center justify-between">
           <h2 className="font-bold text-[#37352f] text-[14px] flex items-center gap-1.5">
             <Feather size={16} /> 草案リスト
@@ -178,7 +187,7 @@ export default function WritingPage() {
       </div>
 
       {/* 2. 中央ペイン: エディタ本体 */}
-      <div className="flex-1 flex flex-col bg-white overflow-hidden relative">
+      <div className={`${mobileTab === 'editor' ? 'flex' : 'hidden'} md:flex flex-1 flex-col bg-white overflow-hidden relative`}>
         {activeDraft ? (
           <>
             <div className="p-4 border-b border-[#e9e9e7] flex items-center justify-between bg-white z-10">
@@ -229,7 +238,7 @@ export default function WritingPage() {
       </div>
 
       {/* 3. 右ペイン: お気に入りリファレンス */}
-      <div className="w-[450px] border-l border-[#e9e9e7] bg-[#fbfbfa] flex flex-col flex-shrink-0 overflow-hidden">
+      <div className={`${mobileTab === 'reference' ? 'flex' : 'hidden'} md:flex w-full md:w-[450px] border-l border-[#e9e9e7] bg-[#fbfbfa] flex-col flex-shrink-0 overflow-hidden`}>
         <div className="flex p-2 border-b border-[#e9e9e7] bg-white gap-1">
           <button
             onClick={() => setActiveTab('phrases')}

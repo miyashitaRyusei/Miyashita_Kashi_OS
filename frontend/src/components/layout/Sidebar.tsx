@@ -29,6 +29,13 @@ const NAV_ITEMS = [
   { href: "/ideas", label: "アイデアの種", icon: Sprout },
 ] as const;
 
+const BOTTOM_NAV_ITEMS = [
+  { href: "/", label: "曲一覧", icon: Database },
+  { href: "/editor", label: "登録", icon: PenLine },
+  { href: "/writing", label: "作詞", icon: Feather },
+  { href: "/ideas", label: "アイデア", icon: Sprout },
+] as const;
+
 // ============================================
 // Sidebar コンポーネント
 // ============================================
@@ -55,12 +62,6 @@ export default function Sidebar() {
             みやした歌詞OS
           </div>
         </div>
-        <button 
-          onClick={() => setIsOpen(!isOpen)}
-          className="p-1 text-[#787774] hover:bg-[#efefed] rounded-md transition-colors"
-        >
-          {isOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
       </div>
 
       {/* サイドバー本体 */}
@@ -114,6 +115,36 @@ export default function Sidebar() {
           })}
         </nav>
       </aside>
+
+      {/* モバイル用ボトムナビゲーション */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#fbfbfa] border-t border-[#e9e9e7] z-50 flex items-center justify-around px-1 pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
+        {BOTTOM_NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const active = isActive(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setIsOpen(false)}
+              className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
+                active ? "text-emerald-600" : "text-[#9ca3af] hover:text-[#787774]"
+              }`}
+            >
+              <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+              <span className="text-[10px] font-bold">{item.label}</span>
+            </Link>
+          );
+        })}
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
+            isOpen ? "text-emerald-600" : "text-[#9ca3af] hover:text-[#787774]"
+          }`}
+        >
+          {isOpen ? <X size={20} strokeWidth={2.5} /> : <Menu size={20} strokeWidth={2} />}
+          <span className="text-[10px] font-bold">{isOpen ? "閉じる" : "メニュー"}</span>
+        </button>
+      </div>
     </>
   );
 }
