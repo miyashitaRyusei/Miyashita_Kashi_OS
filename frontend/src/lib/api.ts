@@ -17,9 +17,6 @@ import type {
   LyricDraft,
   IdeaSeed,
 } from "@/types";
-  LyricDraft,
-  IdeaSeed,
-} from "@/types";
 
 // ============================================
 // 定数
