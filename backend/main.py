@@ -394,3 +394,50 @@ async def delete_draft_api(draft_id: str):
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================
+# Idea Seeds API (アイデアの種)
+# ============================================
+
+class IdeaCreateRequest(BaseModel):
+    content: str
+    category: Optional[str] = "単語"
+    memo: Optional[str] = None
+
+class IdeaUpdateRequest(BaseModel):
+    content: str
+    category: str
+    memo: Optional[str] = None
+
+@app.get("/api/ideas")
+async def get_ideas_api():
+    try:
+        return {"ideas": db.get_idea_seeds()}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ideas")
+async def create_idea_api(req: IdeaCreateRequest):
+    try:
+        return db.create_idea_seed(req.content, req.category, req.memo)
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/ideas/{idea_id}")
+async def update_idea_api(idea_id: str, req: IdeaUpdateRequest):
+    try:
+        return db.update_idea_seed(idea_id, req.content, req.category, req.memo)
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/ideas/{idea_id}")
+async def delete_idea_api(idea_id: str):
+    try:
+        db.delete_idea_seed(idea_id)
+        return {"success": True}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))

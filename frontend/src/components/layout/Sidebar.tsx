@@ -12,6 +12,7 @@ import {
   Menu,
   X,
   Feather,
+  Sprout,
 } from "lucide-react";
 
 // ============================================
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/phrases", label: "フレーズ辞書", icon: BookType },
   { href: "/rules", label: "作詞ルールブック", icon: BookOpen },
   { href: "/writing", label: "作詞草案エディタ", icon: Feather },
+  { href: "/ideas", label: "アイデアの種", icon: Sprout },
 ] as const;
 
 // ============================================

@@ -56,3 +56,17 @@ CREATE POLICY "Allow all access to phrase_stock" ON phrase_stock FOR ALL USING (
 CREATE INDEX IF NOT EXISTS idx_songs_evaluation_tag ON songs(evaluation_tag);
 CREATE INDEX IF NOT EXISTS idx_phrase_stock_type ON phrase_stock(stock_type);
 CREATE INDEX IF NOT EXISTS idx_phrase_stock_song_id ON phrase_stock(song_id);
+
+-- 4. idea_seeds テーブル（アイデアの種、マイフレーズ・単語集用）
+CREATE TABLE IF NOT EXISTS idea_seeds (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    content TEXT NOT NULL,                     -- 浮かんだ言葉・フレーズ
+    category TEXT DEFAULT '単語',             -- カテゴリ ('単語' or 'フレーズ')
+    memo TEXT,                                 -- メモ
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE idea_seeds ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access to idea_seeds" ON idea_seeds FOR ALL USING (true) WITH CHECK (true);
+CREATE INDEX IF NOT EXISTS idx_idea_seeds_category ON idea_seeds(category);

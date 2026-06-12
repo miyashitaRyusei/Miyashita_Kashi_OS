@@ -15,6 +15,10 @@ import type {
   Rhetoric,
   LyricPhrase,
   LyricDraft,
+  IdeaSeed,
+} from "@/types";
+  LyricDraft,
+  IdeaSeed,
 } from "@/types";
 
 // ============================================
@@ -240,6 +244,35 @@ export async function updateDraft(draftId: string, title: string, content: strin
 
 export async function deleteDraft(draftId: string): Promise<{ success: boolean }> {
   return await fetchAPI<{ success: boolean }>(`/api/drafts/${draftId}`, {
+    method: "DELETE",
+  });
+}
+
+// ============================================
+// Idea Seeds API
+// ============================================
+
+export async function fetchIdeaSeeds(): Promise<IdeaSeed[]> {
+  const data = await fetchAPI<{ ideas: IdeaSeed[] }>("/api/ideas");
+  return data.ideas;
+}
+
+export async function createIdeaSeed(content: string, category: string = "単語", memo: string = ""): Promise<IdeaSeed> {
+  return await fetchAPI<IdeaSeed>("/api/ideas", {
+    method: "POST",
+    body: JSON.stringify({ content, category, memo }),
+  });
+}
+
+export async function updateIdeaSeed(id: string, content: string, category: string, memo: string = ""): Promise<IdeaSeed> {
+  return await fetchAPI<IdeaSeed>(`/api/ideas/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ content, category, memo }),
+  });
+}
+
+export async function deleteIdeaSeed(id: string): Promise<{ success: boolean }> {
+  return await fetchAPI<{ success: boolean }>(`/api/ideas/${id}`, {
     method: "DELETE",
   });
 }

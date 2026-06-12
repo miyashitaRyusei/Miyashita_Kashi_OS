@@ -437,3 +437,35 @@ def delete_draft(draft_id: str):
     sb = get_supabase()
     sb.table("lyric_drafts").delete().eq("id", draft_id).execute()
 
+# ============================================
+# Idea Seeds (アイデアの種 / マイフレーズ集)
+# ============================================
+
+def get_idea_seeds() -> list:
+    sb = get_supabase()
+    res = sb.table("idea_seeds").select("*").order("created_at", desc=True).execute()
+    return res.data
+
+def create_idea_seed(content: str, category: str = "単語", memo: str = None) -> dict:
+    sb = get_supabase()
+    res = sb.table("idea_seeds").insert({
+        "content": content,
+        "category": category,
+        "memo": memo
+    }).execute()
+    return res.data[0] if res.data else None
+
+def update_idea_seed(seed_id: str, content: str, category: str, memo: str) -> dict:
+    sb = get_supabase()
+    res = sb.table("idea_seeds").update({
+        "content": content,
+        "category": category,
+        "memo": memo,
+        "updated_at": "now()"
+    }).eq("id", seed_id).execute()
+    return res.data[0] if res.data else None
+
+def delete_idea_seed(seed_id: str) -> bool:
+    sb = get_supabase()
+    res = sb.table("idea_seeds").delete().eq("id", seed_id).execute()
+    return len(res.data) > 0
