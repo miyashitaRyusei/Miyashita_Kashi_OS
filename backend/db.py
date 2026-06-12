@@ -408,7 +408,7 @@ def get_lyric_phrases(is_liked: Optional[bool] = None) -> list:
 
 def get_drafts() -> list:
     sb = get_supabase()
-    res = sb.table("lyric_drafts").select("id, title, updated_at").order("updated_at", desc=True).execute()
+    res = sb.table("lyric_drafts").select("*").order("updated_at", desc=True).execute()
     return res.data
 
 def get_draft(draft_id: str) -> dict:
