@@ -95,20 +95,81 @@ export default function SongDataGrid({
     return <ArrowDown size={12} className="text-[#37352f] ml-1 inline-block" />;
   };
 
-  const scoreBadge = (score: number | null | undefined, reverseColor: boolean = false) => {
-    if (typeof score !== 'number') return { text: "—", cls: "text-[#d4d4d2]" };
-    const sign = score > 0 ? "+" : "";
+  // ランク計算をメモ化
+  const ranks = useMemo(() => {
+    const calcRank = (getVal: (s: Song) => number | null | undefined, isPositive: boolean) => {
+      const validSongs = songs.filter(s => {
+        const v = getVal(s);
+        return typeof v === 'number' && (isPositive ? v > 0 : v < 0);
+      });
+      // 降順（大きい順）にソート。マイナスの場合は絶対値が大きい順（値としては小さい順）にソート
+      validSongs.sort((a, b) => isPositive ? getVal(b)! - getVal(a)! : getVal(a)! - getVal(b)!);
+      
+      const rankMap = new Map<string, number>();
+      let currentRank = 1;
+      let prevVal: number | null = null;
+      let skip = 0;
+
+      validSongs.forEach((s) => {
+        const v = getVal(s)!;
+        if (v !== prevVal) {
+          currentRank += skip;
+          skip = 1;
+          prevVal = v;
+        } else {
+          skip++;
+        }
+        if (s.id) rankMap.set(s.id, currentRank);
+      });
+      return rankMap;
+    };
+
+    return {
+      sentimentPos: calcRank(s => s.sentiment_score, true),
+      sentimentNeg: calcRank(s => s.sentiment_score, false),
+      perspectivePos: calcRank(s => s.perspective_score, true),
+      perspectiveNeg: calcRank(s => s.perspective_score, false),
+      narrativePos: calcRank(s => s.narrative_score, true),
+      narrativeNeg: calcRank(s => s.narrative_score, false),
+      cynicismPos: calcRank(s => s.cynicism_score, true),
+      cynicismNeg: calcRank(s => s.cynicism_score, false),
+      density: calcRank(s => s.information_density, true), // 密度はプラスのみ
+    };
+  }, [songs]);
+
+  const getRankBadge = (
+    songId: string | undefined, 
+    score: number | null | undefined, 
+    posMap: Map<string, number>, 
+    negMap: Map<string, number> | null, 
+    posLabel: string, 
+    negLabel: string, 
+    reverseColor: boolean = false
+  ) => {
+    if (typeof score !== 'number' || !songId) return { text: "—", cls: "text-[#d4d4d2]" };
     
     let color = "bg-amber-50 text-amber-700 border-amber-200";
-    if (score > 0.3) {
+    if (score > 0) {
       color = reverseColor ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-red-50 text-red-700 border-red-200";
-    } else if (score < -0.3) {
+    } else if (score < 0) {
       color = reverseColor ? "bg-red-50 text-red-700 border-red-200" : "bg-blue-50 text-blue-700 border-blue-200";
     }
 
+    let text = "";
+    if (score > 0) {
+      const r = posMap.get(songId);
+      text = r ? `${posLabel} ${r}位` : posLabel;
+    } else if (score < 0 && negMap) {
+      const r = negMap.get(songId);
+      text = r ? `${negLabel} ${r}位` : negLabel;
+    } else {
+      text = "標準";
+      color = "bg-gray-50 text-gray-600 border-gray-200";
+    }
+
     return {
-      text: `${sign}${score.toFixed(2)}`,
-      cls: `px-1.5 py-0.5 rounded border text-[10px] font-mono font-medium ${color} inline-block min-w-[38px] text-center`,
+      text,
+      cls: `px-1.5 py-0.5 rounded border text-[10px] font-bold ${color} inline-block min-w-[38px] text-center whitespace-nowrap`,
     };
   };
 
@@ -118,10 +179,11 @@ export default function SongDataGrid({
       <div className="md:hidden flex flex-col gap-3 max-h-[calc(100vh-200px)] overflow-y-auto">
         {sortedSongs.length > 0 ? (
           sortedSongs.map((song, i) => {
-            const sentiment = scoreBadge(song.sentiment_score);
-            const perspective = scoreBadge(song.perspective_score);
-            const narrative = scoreBadge(song.narrative_score);
-            const cynicism = scoreBadge(song.cynicism_score, true);
+            const sentiment = getRankBadge(song.id, song.sentiment_score, ranks.sentimentPos, ranks.sentimentNeg, "歓喜", "悲哀");
+            const perspective = getRankBadge(song.id, song.perspective_score, ranks.perspectivePos, ranks.perspectiveNeg, "マクロ", "ミクロ");
+            const narrative = getRankBadge(song.id, song.narrative_score, ranks.narrativePos, ranks.narrativeNeg, "物語", "叙情");
+            const cynicism = getRankBadge(song.id, song.cynicism_score, ranks.cynicismPos, ranks.cynicismNeg, "皮肉", "純粋", true);
+            const density = getRankBadge(song.id, song.information_density, ranks.density, null, "密度", "");
 
             return (
               <div
@@ -175,20 +237,13 @@ export default function SongDataGrid({
 
                 {/* スコアバッジ */}
                 <div className="flex flex-wrap gap-1.5 mt-1">
-                  <span className={`px-2 py-0.5 rounded border text-[10px] font-medium ${sentiment.cls.split(' ').slice(4).join(' ')}`}>
-                    感情 {sentiment.text}
-                  </span>
-                  <span className={`px-2 py-0.5 rounded border text-[10px] font-medium ${perspective.cls.split(' ').slice(4).join(' ')}`}>
-                    視点 {perspective.text}
-                  </span>
-                  <span className={`px-2 py-0.5 rounded border text-[10px] font-medium ${narrative.cls.split(' ').slice(4).join(' ')}`}>
-                    物語 {narrative.text}
-                  </span>
-                  <span className={`px-2 py-0.5 rounded border text-[10px] font-medium ${cynicism.cls.split(' ').slice(4).join(' ')}`}>
-                    皮肉 {cynicism.text}
-                  </span>
+                  <span className={sentiment.cls}>{sentiment.text}</span>
+                  <span className={perspective.cls}>{perspective.text}</span>
+                  <span className={narrative.cls}>{narrative.text}</span>
+                  <span className={cynicism.cls}>{cynicism.text}</span>
+                  <span className={density.cls}>{density.text}</span>
                   {song.colloquial_level && (
-                    <span className={`px-2 py-0.5 rounded border text-[10px] font-medium ${COLLOQUIAL_BADGE[song.colloquial_level]?.color || "bg-gray-50 text-gray-600 border-gray-200"}`}>
+                    <span className={`px-2 py-0.5 rounded border text-[10px] font-bold ${COLLOQUIAL_BADGE[song.colloquial_level]?.color || "bg-gray-50 text-gray-600 border-gray-200"}`}>
                       {COLLOQUIAL_BADGE[song.colloquial_level]?.text || song.colloquial_level}
                     </span>
                   )}
@@ -302,10 +357,11 @@ export default function SongDataGrid({
         <tbody className="bg-white">
           {sortedSongs.length > 0 ? (
             sortedSongs.map((song, i) => {
-              const sentiment = scoreBadge(song.sentiment_score);
-              const perspective = scoreBadge(song.perspective_score);
-              const narrative = scoreBadge(song.narrative_score);
-              const cynicism = scoreBadge(song.cynicism_score, true); // 皮肉度はプラス（ひねくれ）が青系になる
+              const sentiment = getRankBadge(song.id, song.sentiment_score, ranks.sentimentPos, ranks.sentimentNeg, "歓喜", "悲哀");
+              const perspective = getRankBadge(song.id, song.perspective_score, ranks.perspectivePos, ranks.perspectiveNeg, "マクロ", "ミクロ");
+              const narrative = getRankBadge(song.id, song.narrative_score, ranks.narrativePos, ranks.narrativeNeg, "物語", "叙情");
+              const cynicism = getRankBadge(song.id, song.cynicism_score, ranks.cynicismPos, ranks.cynicismNeg, "皮肉", "純粋", true);
+              const density = getRankBadge(song.id, song.information_density, ranks.density, null, "高", "");
 
               return (
                 <tr
@@ -381,10 +437,8 @@ export default function SongDataGrid({
                   </td>
 
                   {/* 情報密度 */}
-                  <td className="px-3 py-2.5 text-center font-mono text-[11px] text-[#787774]">
-                    {typeof song.information_density === 'number'
-                      ? song.information_density.toFixed(3)
-                      : "—"}
+                  <td className="px-3 py-2.5 text-center">
+                    <span className={density.cls}>{density.text}</span>
                   </td>
 
                   {/* Like トグル */}
