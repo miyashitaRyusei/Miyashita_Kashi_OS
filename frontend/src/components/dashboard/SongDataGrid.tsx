@@ -149,9 +149,9 @@ export default function SongDataGrid({
     if (typeof score !== 'number' || !songId) return { text: "—", cls: "text-[#d4d4d2]" };
     
     let color = "bg-amber-50 text-amber-700 border-amber-200";
-    if (score > 0) {
+    if (score > 0.3) {
       color = reverseColor ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-red-50 text-red-700 border-red-200";
-    } else if (score < 0) {
+    } else if (score < -0.3) {
       color = reverseColor ? "bg-red-50 text-red-700 border-red-200" : "bg-blue-50 text-blue-700 border-blue-200";
     }
 

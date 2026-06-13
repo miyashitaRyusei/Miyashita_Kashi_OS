@@ -249,6 +249,13 @@ def update_evaluation_tag(song_id: str, is_liked: bool) -> Optional[dict]:
     return result.data[0] if result.data else None
 
 
+def update_song_meta(song_id: str, title: str, artist: str) -> Optional[dict]:
+    """楽曲のタイトルとアーティスト名を更新する"""
+    sb = get_supabase()
+    result = sb.table("songs").update({"title": title, "artist": artist}).eq("id", song_id).execute()
+    return result.data[0] if result.data else None
+
+
 # ============================================
 # Inline Editing APIs
 # ============================================

@@ -100,6 +100,19 @@ export async function updateSongLike(
   });
 }
 
+/** 楽曲のタイトルとアーティスト名を更新する */
+export async function updateSongMeta(
+  id: string,
+  title: string,
+  artist: string
+): Promise<void> {
+  await fetchAPI<{ success: boolean }>(`/api/songs/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ title, artist }),
+  });
+}
+
+
 // ============================================
 // Analysis API
 // ============================================

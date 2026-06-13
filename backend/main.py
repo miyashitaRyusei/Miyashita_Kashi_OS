@@ -263,6 +263,21 @@ async def update_song_like(song_id: str, body: SongLikeUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class SongMetaUpdate(BaseModel):
+    title: str
+    artist: str
+
+@app.put("/api/songs/{song_id}")
+async def update_song_meta_endpoint(song_id: str, body: SongMetaUpdate):
+    """楽曲のタイトル・アーティスト名を更新する"""
+    try:
+        result = db.update_song_meta(song_id, body.title, body.artist)
+        return {"success": result is not None, "data": result}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============================================
 # インライン編集 API
 # ============================================

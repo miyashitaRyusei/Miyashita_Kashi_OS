@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Music, Clock, Copy, Check, Rewind, Play, FastForward, Shuffle, Smile, Meh, Frown } from "lucide-react";
 import type { SongWithDetails } from "@/lib/api";
-import { fetchSongById } from "@/lib/api";
+import { fetchSongById, updateSongMeta } from "@/lib/api";
 import { formatSongAsMarkdown, copyToClipboard } from "@/lib/export";
 import SectionAccordion from "@/components/song-detail/SectionAccordion";
 import SectionTrajectoryChart from "@/components/song-detail/SectionTrajectoryChart";
@@ -40,6 +40,10 @@ export default function SongDetailPage() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [isEditingMeta, setIsEditingMeta] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editArtist, setEditArtist] = useState("");
+
   // ============================================
   // データ取得
   // ============================================
@@ -59,6 +63,25 @@ export default function SongDetailPage() {
       setError("楽曲の取得に失敗しました");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditMeta = () => {
+    if (!song) return;
+    setEditTitle(song.title || "");
+    setEditArtist(song.artist || "");
+    setIsEditingMeta(true);
+  };
+
+  const handleSaveMeta = async () => {
+    if (!song) return;
+    try {
+      await updateSongMeta(song.id, editTitle, editArtist);
+      setSong({ ...song, title: editTitle, artist: editArtist });
+      setIsEditingMeta(false);
+    } catch (err) {
+      alert("更新に失敗しました");
+      console.error(err);
     }
   };
 
@@ -139,14 +162,48 @@ export default function SongDetailPage() {
         {/* ヘッダー */}
         {/* =============================== */}
         <div className="flex items-start justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-[#37352f] flex items-center gap-3">
-              <Music size={28} className="text-[#9ca3af] flex-shrink-0" />
-              {song.title}
-            </h1>
-            <p className="text-[15px] text-[#787774] mt-1.5 ml-[40px]">
-              {song.artist}
-            </p>
+          <div className="flex-1">
+            {isEditingMeta ? (
+              <div className="flex flex-col gap-2 max-w-md">
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="text-2xl font-bold text-[#37352f] border border-[#e9e9e7] rounded-md px-2 py-1 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="タイトル"
+                />
+                <input
+                  type="text"
+                  value={editArtist}
+                  onChange={(e) => setEditArtist(e.target.value)}
+                  className="text-[15px] text-[#787774] border border-[#e9e9e7] rounded-md px-2 py-1 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="アーティスト"
+                />
+                <div className="flex gap-2 mt-1">
+                  <button onClick={handleSaveMeta} className="px-3 py-1 bg-emerald-600 text-white text-[12px] rounded font-bold hover:bg-emerald-700">保存</button>
+                  <button onClick={() => setIsEditingMeta(false)} className="px-3 py-1 bg-[#efefed] text-[#787774] text-[12px] rounded font-bold hover:bg-[#e9e9e7]">キャンセル</button>
+                </div>
+              </div>
+            ) : (
+              <div className="group relative flex items-start">
+                <h1 className="text-3xl font-bold text-[#37352f] flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 cursor-pointer" onClick={handleEditMeta}>
+                  <div className="flex items-center gap-3">
+                    <Music size={28} className="text-[#9ca3af] flex-shrink-0" />
+                    {song.title}
+                  </div>
+                  <p className="text-[15px] text-[#787774] sm:mt-1.5 ml-10 sm:ml-0 font-normal">
+                    {song.artist}
+                  </p>
+                </h1>
+                <button 
+                  onClick={handleEditMeta}
+                  className="ml-2 mt-1.5 opacity-0 group-hover:opacity-100 text-[#9ca3af] hover:text-[#37352f] transition-opacity"
+                  title="タイトル・アーティストを編集"
+                >
+                  <span className="text-[11px] font-bold border border-[#e9e9e7] px-1.5 py-0.5 rounded shadow-sm bg-white">編集</span>
+                </button>
+              </div>
+            )}
           </div>
           <button
             onClick={handleExport}
