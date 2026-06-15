@@ -53,11 +53,25 @@ export default function SongDetailPage() {
   }, [id]);
 
   const loadSong = async () => {
-    setLoading(true);
+    const cacheKey = `kashi_os_song_${id}`;
+    const cached = localStorage.getItem(cacheKey);
+    
+    if (cached) {
+      try {
+        setSong(JSON.parse(cached));
+        setLoading(false);
+      } catch (e) {
+        // パース失敗時は無視
+      }
+    } else {
+      setLoading(true);
+    }
+
     setError(null);
     try {
       const data = await fetchSongById(id);
       setSong(data);
+      localStorage.setItem(cacheKey, JSON.stringify(data));
     } catch (err) {
       console.error("楽曲の取得に失敗しました:", err);
       setError("楽曲の取得に失敗しました");

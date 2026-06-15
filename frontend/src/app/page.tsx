@@ -70,10 +70,25 @@ export default function DashboardPage() {
   }, []);
 
   const loadSongs = async () => {
-    setLoading(true);
+    // 1. ローカルキャッシュがあれば即座に表示（体感0秒）
+    const cached = localStorage.getItem("kashi_os_songs_cache");
+    if (cached) {
+      try {
+        setSongs(JSON.parse(cached));
+        setLoading(false);
+      } catch (e) {
+        // パース失敗時は無視
+      }
+    } else {
+      setLoading(true);
+    }
+
     try {
+      // 2. バックグラウンドで最新データを取得（ここでサーバーが起きる）
       const data = await fetchSongs();
       setSongs(data);
+      // キャッシュを最新化
+      localStorage.setItem("kashi_os_songs_cache", JSON.stringify(data));
     } catch (err) {
       console.error("楽曲の取得に失敗しました:", err);
     } finally {
