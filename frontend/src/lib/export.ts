@@ -140,12 +140,13 @@ export function formatPreferencePrompt(songs: Song[]): string {
   lines.push("- **抽象/具体 (Abstract/Concrete)**: 1(抽象的・概念的) 〜 4(具象的・風景描写)");
   lines.push("- **情報密度 (Density)**: 1文字あたりの内容語（名詞・動詞等）の多さ。高いほど意味が詰まっている。");
   lines.push("- **口語度 (Colloquial)**: poetic(詩的), intermediate(中間), colloquial(口語)");
+  lines.push("- **お気に入り (Liked)**: 〇がついている曲は私が特に気に入っている（または自作の中で特に納得がいっている）曲です。");
   lines.push("");
 
   // --- データテーブル ---
   lines.push("# 分析データ");
-  lines.push("| タイトル | アーティスト | 感情 | 視点 | 物語 | 皮肉 | 抽象/具体 | 密度 | 口語度 |");
-  lines.push("|---|---|---|---|---|---|---|---|---|");
+  lines.push("| タイトル | アーティスト | お気に入り | 感情 | 視点 | 物語 | 皮肉 | 抽象/具体 | 密度 | 口語度 |");
+  lines.push("|---|---|---|---|---|---|---|---|---|---|");
 
   for (const song of songs) {
     const title = song.title || "—";
@@ -157,8 +158,9 @@ export function formatPreferencePrompt(songs: Song[]): string {
     const abstract = song.abstract_balance_score !== null ? song.abstract_balance_score.toString() : "—";
     const density = song.information_density !== null ? song.information_density.toFixed(3) : "—";
     const colloquial = song.colloquial_level || "—";
+    const liked = song.is_liked ? "〇" : "—";
 
-    lines.push(`| ${title} | ${artist} | ${sentiment} | ${perspective} | ${narrative} | ${cynicism} | ${abstract} | ${density} | ${colloquial} |`);
+    lines.push(`| ${title} | ${artist} | ${liked} | ${sentiment} | ${perspective} | ${narrative} | ${cynicism} | ${abstract} | ${density} | ${colloquial} |`);
   }
 
   return lines.join("\n");
