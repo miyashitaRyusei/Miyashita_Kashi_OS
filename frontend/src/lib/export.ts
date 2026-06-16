@@ -5,6 +5,7 @@
  * LLMに貼り付けやすい形でクリップボードにコピーするための関数群。
  */
 
+import type { Song } from "@/types";
 import type { SongWithDetails, SectionWithDetails } from "./api";
 
 // ============================================
@@ -120,7 +121,7 @@ export function formatSongsAsMarkdown(songs: SongWithDetails[]): string {
 // ============================================
 
 /** 複数楽曲の数値データのみを抽出し、AIに好み分析を依頼するプロンプトを生成する */
-export function formatPreferencePrompt(songs: SongWithDetails[]): string {
+export function formatPreferencePrompt(songs: Song[]): string {
   const lines: string[] = [];
 
   // --- システムプロンプト・指示文 ---

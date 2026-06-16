@@ -240,7 +240,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <PreferenceExportButton selectedIds={selectedIds} />
+            <PreferenceExportButton songs={songs} selectedIds={selectedIds} />
             <LLMExportButton selectedIds={selectedIds} />
 
             {/* ビュー切り替えトグル */}

@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { Sparkles, Check } from "lucide-react";
-import { fetchSongById } from "@/lib/api";
-import type { SongWithDetails } from "@/lib/api";
+import type { Song } from "@/types";
 import { formatPreferencePrompt, copyToClipboard } from "@/lib/export";
 
 interface PreferenceExportButtonProps {
+  songs: Song[];
   selectedIds: Set<string>;
 }
 
-export default function PreferenceExportButton({ selectedIds }: PreferenceExportButtonProps) {
+export default function PreferenceExportButton({ songs, selectedIds }: PreferenceExportButtonProps) {
   const [exporting, setExporting] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -21,11 +21,8 @@ export default function PreferenceExportButton({ selectedIds }: PreferenceExport
     setExporting(true);
 
     try {
-      const songs: SongWithDetails[] = await Promise.all(
-        Array.from(selectedIds).map((id) => fetchSongById(id))
-      );
-
-      const text = formatPreferencePrompt(songs);
+      const selectedSongs = songs.filter(song => selectedIds.has(song.id!));
+      const text = formatPreferencePrompt(selectedSongs);
 
       const success = await copyToClipboard(text);
       if (success) {
