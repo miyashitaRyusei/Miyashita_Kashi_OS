@@ -30,6 +30,48 @@ const COLLOQUIAL_LABELS: Record<string, string> = {
   poetic: "詩的",
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CustomTooltip1 = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white border border-[#e9e9e7] p-3 rounded-lg shadow-sm text-[12px] min-w-[150px]">
+        <p className="font-bold text-[#37352f] mb-2">{label}</p>
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex justify-between items-center gap-4 py-0.5">
+            <span style={{ color: entry.color }}>{entry.name}</span>
+            <span className="font-mono text-[#37352f] font-medium">
+              {Number(entry.value).toFixed(2)}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CustomTooltip2 = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const dataPoint = payload[0].payload;
+    return (
+      <div className="bg-white border border-[#e9e9e7] p-3 rounded-lg shadow-sm text-[12px] min-w-[150px]">
+        <p className="font-bold text-[#37352f] mb-2">{label}</p>
+        <div className="flex justify-between items-center gap-4 py-0.5">
+          <span style={{ color: "#8b5cf6" }}>時間軸</span>
+          <span className="font-medium text-[#37352f]">{dataPoint.timelineOriginal}</span>
+        </div>
+        <div className="flex justify-between items-center gap-4 py-0.5">
+          <span style={{ color: "#ec4899" }}>口語度</span>
+          <span className="font-medium text-[#37352f]">{dataPoint.colloqOriginal}</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function SectionTrajectoryChart({
   sections,
 }: SectionTrajectoryChartProps) {
@@ -62,45 +104,6 @@ export default function SectionTrajectoryChart({
       colloqOriginal: COLLOQUIAL_LABELS[sec.colloquial_level || ""] || sec.colloquial_level || "未解析",
     };
   });
-
-  const CustomTooltip1 = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white border border-[#e9e9e7] p-3 rounded-lg shadow-sm text-[12px] min-w-[150px]">
-          <p className="font-bold text-[#37352f] mb-2">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <div key={index} className="flex justify-between items-center gap-4 py-0.5">
-              <span style={{ color: entry.color }}>{entry.name}</span>
-              <span className="font-mono text-[#37352f] font-medium">
-                {Number(entry.value).toFixed(2)}
-              </span>
-            </div>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
-
-  const CustomTooltip2 = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const dataPoint = payload[0].payload;
-      return (
-        <div className="bg-white border border-[#e9e9e7] p-3 rounded-lg shadow-sm text-[12px] min-w-[150px]">
-          <p className="font-bold text-[#37352f] mb-2">{label}</p>
-          <div className="flex justify-between items-center gap-4 py-0.5">
-            <span style={{ color: "#8b5cf6" }}>時間軸</span>
-            <span className="font-medium text-[#37352f]">{dataPoint.timelineOriginal}</span>
-          </div>
-          <div className="flex justify-between items-center gap-4 py-0.5">
-            <span style={{ color: "#ec4899" }}>口語度</span>
-            <span className="font-medium text-[#37352f]">{dataPoint.colloqOriginal}</span>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="space-y-4 mb-8">

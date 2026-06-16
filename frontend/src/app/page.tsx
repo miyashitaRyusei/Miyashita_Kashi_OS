@@ -19,6 +19,7 @@ import SongFilterBar from "@/components/dashboard/SongFilterBar";
 import type { Filters } from "@/components/dashboard/SongFilterBar";
 import SongDataGrid from "@/components/dashboard/SongDataGrid";
 import LLMExportButton from "@/components/dashboard/LLMExportButton";
+import PreferenceExportButton from "@/components/dashboard/PreferenceExportButton";
 import PreferenceAnalysis from "@/components/dashboard/PreferenceAnalysis";
 
 // ============================================
@@ -239,6 +240,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <PreferenceExportButton selectedIds={selectedIds} />
             <LLMExportButton selectedIds={selectedIds} />
 
             {/* ビュー切り替えトグル */}
