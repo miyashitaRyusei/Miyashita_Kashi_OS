@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Music, Clock, Copy, Check, Rewind, Play, FastForward, Shuffle, Smile, Meh, Frown } from "lucide-react";
-import type { SongWithDetails } from "@/lib/api";
-import { fetchSongById, updateSongMeta } from "@/lib/api";
+import type { Song } from "@/types";
+import { fetchSongById, fetchSongs, updateSongMeta } from "@/lib/api";
 import { formatSongAsMarkdown, copyToClipboard } from "@/lib/export";
 import SectionAccordion from "@/components/song-detail/SectionAccordion";
 import SectionTrajectoryChart from "@/components/song-detail/SectionTrajectoryChart";
+import SongComparisonRadar from "@/components/song-detail/SongComparisonRadar";
 
 // ============================================
 // 定数
@@ -36,6 +37,7 @@ export default function SongDetailPage() {
   const id = params.id as string;
 
   const [song, setSong] = useState<SongWithDetails | null>(null);
+  const [allSongs, setAllSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,11 +56,14 @@ export default function SongDetailPage() {
 
   const loadSong = async () => {
     const cacheKey = `kashi_os_song_${id}`;
+    const allSongsCacheKey = "kashi_os_songs_cache";
     const cached = localStorage.getItem(cacheKey);
+    const cachedAllSongs = localStorage.getItem(allSongsCacheKey);
     
     if (cached) {
       try {
         setSong(JSON.parse(cached));
+        if (cachedAllSongs) setAllSongs(JSON.parse(cachedAllSongs));
         setLoading(false);
       } catch (e) {
         // パース失敗時は無視
@@ -69,9 +74,15 @@ export default function SongDetailPage() {
 
     setError(null);
     try {
-      const data = await fetchSongById(id);
+      // 楽曲詳細と全楽曲リストを並行して取得
+      const [data, allData] = await Promise.all([
+        fetchSongById(id),
+        fetchSongs(),
+      ]);
       setSong(data);
+      setAllSongs(allData);
       localStorage.setItem(cacheKey, JSON.stringify(data));
+      localStorage.setItem(allSongsCacheKey, JSON.stringify(allData));
     } catch (err) {
       console.error("楽曲の取得に失敗しました:", err);
       setError("楽曲の取得に失敗しました");
@@ -377,6 +388,11 @@ export default function SongDetailPage() {
         {song.sections && song.sections.length > 0 && (
           <SectionTrajectoryChart sections={song.sections} />
         )}
+
+        {/* =============================== */}
+        {/* DNA相対比較グラフ */}
+        {/* =============================== */}
+        <SongComparisonRadar currentSong={song} allSongs={allSongs} />
 
         {/* =============================== */}
         {/* セクション一覧 */}
