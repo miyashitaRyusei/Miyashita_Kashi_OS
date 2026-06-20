@@ -56,6 +56,7 @@ async function fetchAPI<T>(
 ): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
+    cache: "no-store",
     ...options,
   });
 
