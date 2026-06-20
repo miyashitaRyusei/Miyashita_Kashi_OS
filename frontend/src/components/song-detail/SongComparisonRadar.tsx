@@ -130,26 +130,26 @@ export default function SongComparisonRadar({ currentSong, allSongs }: SongCompa
             <Radar
               name="Unlike平均"
               dataKey="unlikedAvg"
-              stroke="#9ca3af"
-              fill="#9ca3af"
-              fillOpacity={0.1}
+              stroke="#3b82f6"
+              fill="#3b82f6"
+              fillOpacity={0.2}
               strokeDasharray="3 3"
             />
             {/* Like 平均 */}
             <Radar
               name="Like平均"
               dataKey="likedAvg"
-              stroke="#10b981"
-              fill="#10b981"
-              fillOpacity={0.15}
+              stroke="#ef4444"
+              fill="#ef4444"
+              fillOpacity={0.2}
             />
             {/* 今回の楽曲 */}
             <Radar
               name="この楽曲"
               dataKey="current"
-              stroke="#ec4899"
-              fill="#ec4899"
-              fillOpacity={0.4}
+              stroke="#10b981"
+              fill="#10b981"
+              fillOpacity={0.5}
               strokeWidth={2}
             />
             
