@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Music, Clock, Copy, Check, Rewind, Play, FastForward, Shuffle, Smile, Meh, Frown } from "lucide-react";
 import type { Song } from "@/types";
+import type { SongWithDetails } from "@/lib/api";
 import { fetchSongById, fetchSongs, updateSongMeta } from "@/lib/api";
 import { formatSongAsMarkdown, copyToClipboard } from "@/lib/export";
 import SectionAccordion from "@/components/song-detail/SectionAccordion";

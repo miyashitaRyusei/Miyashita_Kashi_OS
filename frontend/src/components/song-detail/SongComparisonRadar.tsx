@@ -156,7 +156,8 @@ export default function SongComparisonRadar({ currentSong, allSongs }: SongCompa
             <Tooltip
               contentStyle={{ borderRadius: '8px', border: '1px solid #e9e9e7', fontSize: '11px', padding: '8px' }}
               itemStyle={{ padding: '2px 0' }}
-              formatter={(value: number) => Math.round(value)}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              formatter={(value: any) => typeof value === 'number' ? Math.round(value) : value}
             />
             <Legend 
               wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
