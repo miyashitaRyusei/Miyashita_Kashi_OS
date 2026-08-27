@@ -138,6 +138,15 @@ export async function getSongStatus(id: string): Promise<{ id: string; analysis_
   return fetchAPI<{ id: string; analysis_status: string }>(`/api/songs/${id}/status`);
 }
 
+/** バックエンドを起こしておくためのヘルスチェック */
+export async function pingHealthCheck(): Promise<void> {
+  try {
+    await fetchAPI<{ status: string }>("/api/health");
+  } catch (e) {
+    console.error("Health check ping failed:", e);
+  }
+}
+
 // ============================================
 // Inline Edit API
 // ============================================

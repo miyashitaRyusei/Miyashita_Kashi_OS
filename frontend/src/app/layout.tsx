@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Zen_Kaku_Gothic_New } from "next/font/google";
 import Sidebar from "@/components/layout/Sidebar";
+import KeepAlive from "@/components/KeepAlive";
 import "./globals.css";
 
 const zenKakuGothic = Zen_Kaku_Gothic_New({
@@ -25,6 +26,7 @@ export default function RootLayout({
       className={`${zenKakuGothic.variable} h-full antialiased`}
     >
       <body className={`h-full flex flex-col md:flex-row bg-white text-[#37352f] ${zenKakuGothic.className}`}>
+        <KeepAlive />
         <Sidebar />
         <main className="flex-1 flex flex-col h-full overflow-hidden pb-16 md:pb-0">
           {children}
