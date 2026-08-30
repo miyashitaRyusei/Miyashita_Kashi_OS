@@ -15,6 +15,7 @@ export interface Song {
   cynicism_score: number | null;
   analysis_status: 'processing' | 'completed' | 'error';
   is_liked: boolean;
+  reference_tier?: 'core' | 'selected' | 'archive' | null;
   created_at: string;
 }
 

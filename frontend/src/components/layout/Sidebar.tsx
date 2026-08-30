@@ -3,169 +3,45 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Database,
-  PenLine,
-  BookType,
-  BookOpen,
-  Menu,
-  X,
-  Feather,
-  Sprout,
-} from "lucide-react";
+import { Archive, BookOpen, BookType, Database, Feather, Menu, PenLine, Sprout, X } from "lucide-react";
 
-// ============================================
-// ナビゲーション定義
-// ============================================
-
-const NAV_ITEMS = [
-  { href: "/", label: "書く", icon: Feather },
-  { href: "/songs", label: "参考曲", icon: Database },
-  { href: "/endings", label: "文末辞書", icon: BookType },
+const PRIMARY_ITEMS = [
+  { href: "/library", label: "ライブラリ", icon: Database },
+  { href: "/techniques", label: "作詞技法", icon: BookOpen },
+  { href: "/endings", label: "文末表現", icon: BookType },
   { href: "/phrases", label: "フレーズ", icon: BookType },
-  { href: "/rules", label: "作詞ルール", icon: BookOpen },
+] as const;
+
+const SUPPORT_ITEMS = [
+  { href: "/writing", label: "草案", icon: Feather },
   { href: "/ideas", label: "アイデア", icon: Sprout },
+  { href: "/editor", label: "楽曲登録", icon: PenLine },
+  { href: "/songs", label: "旧比較画面", icon: Archive },
+  { href: "/rules", label: "旧作詞ルール", icon: BookOpen },
 ] as const;
 
-const TOOL_ITEMS = [
-  { href: "/editor", label: "楽曲を登録・分析", icon: PenLine },
-] as const;
-
-const BOTTOM_NAV_ITEMS = [
-  { href: "/", label: "書く", icon: Feather },
-  { href: "/songs", label: "参考曲", icon: Database },
-  { href: "/endings", label: "文末", icon: BookType },
-  { href: "/ideas", label: "アイデア", icon: Sprout },
-] as const;
-
-// ============================================
-// Sidebar コンポーネント
-// ============================================
+const MOBILE_ITEMS = [PRIMARY_ITEMS[0], PRIMARY_ITEMS[1], PRIMARY_ITEMS[2], SUPPORT_ITEMS[0]] as const;
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const isActive = (href: string) => href === "/" ? pathname === "/" : pathname.startsWith(href);
 
-  /** パスがアクティブかどうかを判定する */
-  const isActive = (href: string) => {
-    if (href === "/") return pathname === "/";
-    return pathname.startsWith(href);
+  const renderLink = (item: (typeof PRIMARY_ITEMS)[number] | (typeof SUPPORT_ITEMS)[number], compact = false) => {
+    const Icon = item.icon;
+    const active = isActive(item.href);
+    return <Link key={item.href} href={item.href} onClick={() => setIsOpen(false)} className={`flex w-full items-center gap-3 rounded-lg px-4 ${compact ? "py-2.5 text-[12px]" : "py-3 text-[14px]"} font-medium transition-colors ${active ? "bg-emerald-100/70 text-emerald-900" : "text-[#747d76] hover:bg-emerald-50 hover:text-[#38413a]"}`}><Icon size={compact ? 16 : 18} strokeWidth={active ? 2.5 : 2} className={active ? "text-emerald-600" : "text-[#9aa29c]"} />{item.label}</Link>;
   };
 
-  return (
-    <>
-      {/* モバイル用ヘッダー */}
-      <div className="md:hidden flex items-center justify-between p-3 border-b border-[#e9e9e7] bg-[#fbfbfa]">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-emerald-700 text-white rounded-md text-[11px] flex items-center justify-center font-bold shadow-sm">
-            M
-          </div>
-          <div className="font-semibold text-[15px] tracking-wide text-[#37352f]">
-            みやした歌詞OS
-          </div>
-        </div>
-      </div>
-
-      {/* サイドバー本体 */}
-      <aside className={`
-        ${isOpen ? 'flex' : 'hidden'} 
-        md:flex
-        w-full md:w-64 bg-[#f6faf6] border-b md:border-b-0 md:border-r border-[#e9e9e7] flex-col flex-shrink-0
-        absolute md:relative top-[53px] md:top-0 z-50 h-[calc(100vh-53px)] md:h-full
-      `}>
-        {/* ワークスペースタイトル (PC用) */}
-        <div className="hidden md:flex px-6 py-5 items-center gap-2.5 cursor-default">
-          <Feather size={20} className="text-emerald-500" />
-          <div className="font-bold text-[16px] tracking-wide text-[#37352f] leading-tight">
-            みやした歌詞OS
-          </div>
-        </div>
-
-        {/* セクションラベル */}
-        <div className="px-6 py-2 mt-2 md:mt-0 text-[10px] font-bold text-[#c4c4c2] tracking-widest uppercase">
-          MENU
-        </div>
-
-        {/* ナビゲーション */}
-        <nav className="flex-1 px-3 space-y-1 overflow-y-auto mt-2">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setIsOpen(false)} // モバイルでリンクタップ時に閉じる
-                className={`
-                  w-full flex items-center gap-3.5 px-4 py-3 text-[14px] rounded-lg
-                  transition-all duration-100 font-medium tracking-wide
-                  ${
-                    active
-                      ? "bg-emerald-100/60 text-emerald-900 shadow-sm"
-                      : "text-[#787774] hover:bg-emerald-50/80 hover:text-[#37352f]"
-                  }
-                `}
-              >
-                <Icon
-                  size={18}
-                  strokeWidth={active ? 2.5 : 2}
-                  className={active ? "text-emerald-600" : "text-[#9ca3af]"}
-                />
-                {item.label}
-              </Link>
-            );
-          })}
-
-          <div className="pt-5 pb-2 px-3 text-[9px] font-bold text-[#b3b9b3] tracking-[0.14em] uppercase">
-            Analysis
-          </div>
-          {TOOL_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setIsOpen(false)}
-                className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-[12px] rounded-lg transition-colors font-medium ${active ? "bg-emerald-100/60 text-emerald-900" : "text-[#969c96] hover:bg-emerald-50/80 hover:text-[#596059]"}`}
-              >
-                <Icon size={16} strokeWidth={active ? 2.5 : 2} />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-      </aside>
-
-      {/* モバイル用ボトムナビゲーション */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#fbfbfa] border-t border-[#e9e9e7] z-50 flex items-center justify-around px-1 pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
-        {BOTTOM_NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setIsOpen(false)}
-              className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
-                active ? "text-emerald-600" : "text-[#9ca3af] hover:text-[#787774]"
-              }`}
-            >
-              <Icon size={20} strokeWidth={active ? 2.5 : 2} />
-              <span className="text-[10px] font-bold">{item.label}</span>
-            </Link>
-          );
-        })}
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
-            isOpen ? "text-emerald-600" : "text-[#9ca3af] hover:text-[#787774]"
-          }`}
-        >
-          {isOpen ? <X size={20} strokeWidth={2.5} /> : <Menu size={20} strokeWidth={2} />}
-          <span className="text-[10px] font-bold">{isOpen ? "閉じる" : "メニュー"}</span>
-        </button>
-      </div>
-    </>
-  );
+  return <>
+    <div className="flex items-center justify-between border-b border-[#e4e9e4] bg-[#f8fbf8] p-3 md:hidden"><Link href="/library" className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-700 text-[11px] font-bold text-white">M</span><span className="text-[14px] font-bold text-[#374039]">みやした歌詞OS</span></Link></div>
+    <aside className={`${isOpen ? "flex" : "hidden"} absolute top-[53px] z-50 h-[calc(100vh-53px)] w-full flex-col border-r border-[#e4e9e4] bg-[#f6faf6] md:relative md:top-0 md:flex md:h-full md:w-64`}>
+      <Link href="/library" className="hidden items-center gap-2.5 px-6 py-5 md:flex"><Database size={20} className="text-emerald-600" /><span className="text-[16px] font-bold text-[#374039]">みやした歌詞OS</span></Link>
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pt-3"><p className="px-3 pb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[#aab2ac]">Research</p>{PRIMARY_ITEMS.map((item) => renderLink(item))}<p className="px-3 pb-2 pt-6 text-[9px] font-bold uppercase tracking-[0.16em] text-[#aab2ac]">Support</p>{SUPPORT_ITEMS.map((item) => renderLink(item, true))}</nav>
+    </aside>
+    <div className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t border-[#e4e9e4] bg-[#fbfdfb] px-1 md:hidden">
+      {MOBILE_ITEMS.map((item) => { const Icon = item.icon; const active = isActive(item.href); return <Link key={item.href} href={item.href} className={`flex h-full w-full flex-col items-center justify-center gap-1 ${active ? "text-emerald-700" : "text-[#969e98]"}`}><Icon size={20} /><span className="text-[9px] font-bold">{item.label}</span></Link>; })}
+      <button onClick={() => setIsOpen((value) => !value)} className={`flex h-full w-full flex-col items-center justify-center gap-1 ${isOpen ? "text-emerald-700" : "text-[#969e98]"}`}>{isOpen ? <X size={20} /> : <Menu size={20} />}<span className="text-[9px] font-bold">メニュー</span></button>
+    </div>
+  </>;
 }

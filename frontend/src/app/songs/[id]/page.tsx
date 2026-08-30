@@ -10,6 +10,7 @@ import { formatSongAsMarkdown, copyToClipboard } from "@/lib/export";
 import SectionAccordion from "@/components/song-detail/SectionAccordion";
 import SectionTrajectoryChart from "@/components/song-detail/SectionTrajectoryChart";
 import SongComparisonRadar from "@/components/song-detail/SongComparisonRadar";
+import ResearchAnalysisPanel from "@/components/research/ResearchAnalysisPanel";
 
 // ============================================
 // 定数
@@ -146,7 +147,7 @@ export default function SongDetailPage() {
           {error || "楽曲が見つかりませんでした"}
         </p>
         <button
-          onClick={() => router.push("/")}
+          onClick={() => router.push("/library")}
           className="text-[13px] text-[#37352f] hover:underline flex items-center gap-1.5"
         >
           <ArrowLeft size={14} />
@@ -256,6 +257,8 @@ export default function SongDetailPage() {
         {/* =============================== */}
         {/* メタデータカード */}
         {/* =============================== */}
+        <ResearchAnalysisPanel song={song} />
+
         <details className="group mb-8 rounded-lg border border-[#e9e9e7] bg-white">
           <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-[12px] font-bold text-[#5f655f] hover:bg-[#fbfbfa]">
             詳細分析

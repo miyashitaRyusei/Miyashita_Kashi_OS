@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
@@ -45,6 +46,8 @@ const MATERIAL_TABS: { key: MaterialTab; label: string }[] = [
 ];
 
 export default function WritingWorkspacePage() {
+  const pathname = usePathname();
+  const router = useRouter();
   const [drafts, setDrafts] = useState<LyricDraft[]>([]);
   const [activeDraft, setActiveDraft] = useState<LyricDraft | null>(null);
   const [title, setTitle] = useState("");
@@ -52,6 +55,10 @@ export default function WritingWorkspacePage() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveState, setSaveState] = useState<"saved" | "editing" | "error">("saved");
+
+  useEffect(() => {
+    if (pathname === "/") router.replace("/library");
+  }, [pathname, router]);
 
   const [ideas, setIdeas] = useState<IdeaSeed[]>([]);
   const [phrases, setPhrases] = useState<LyricPhrase[]>([]);
@@ -254,6 +261,10 @@ export default function WritingWorkspacePage() {
     const value = new Date(date);
     return `${value.getMonth() + 1}/${value.getDate()} ${value.getHours()}:${pad(value.getMinutes())}`;
   };
+
+  if (pathname === "/") {
+    return <div className="flex-1 flex items-center justify-center text-[12px] text-[#8b938d]">ライブラリへ移動中...</div>;
+  }
 
   if (loading) {
     return <div className="flex-1 flex items-center justify-center"><LoadingSpinner text="作詞環境を準備中..." /></div>;

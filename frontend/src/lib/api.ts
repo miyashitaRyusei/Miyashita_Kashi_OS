@@ -17,6 +17,12 @@ import type {
   LyricDraft,
   IdeaSeed,
 } from "@/types";
+import type {
+  ReferenceTier,
+  ResearchAnalysisV02,
+  ResearchItem,
+  SongResearchAnalysis,
+} from "@/types/research";
 
 // ============================================
 // 定数
@@ -111,6 +117,78 @@ export async function updateSongMeta(
     method: "PUT",
     body: JSON.stringify({ title, artist }),
   });
+}
+
+export async function updateSongReferenceTier(
+  id: string,
+  referenceTier: ReferenceTier | null
+): Promise<Song> {
+  const result = await fetchAPI<{ success: boolean; data: Song }>(
+    `/api/songs/${id}/reference-tier`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ reference_tier: referenceTier }),
+    }
+  );
+  return result.data;
+}
+
+export interface ResearchValidationResult {
+  valid: true;
+  analysis: ResearchAnalysisV02;
+  derived_item_count: number;
+}
+
+export async function validateResearchAnalysis(
+  analysisJson: unknown
+): Promise<ResearchValidationResult> {
+  return fetchAPI<ResearchValidationResult>("/api/research-analyses/validate", {
+    method: "POST",
+    body: JSON.stringify({ analysis_json: analysisJson, source: "chatgpt" }),
+  });
+}
+
+export async function fetchActiveResearchAnalysis(
+  songId: string
+): Promise<SongResearchAnalysis | null> {
+  const data = await fetchAPI<{ analysis: SongResearchAnalysis | null }>(
+    `/api/songs/${songId}/research-analysis`
+  );
+  return data.analysis;
+}
+
+export async function importResearchAnalysis(
+  songId: string,
+  analysisJson: ResearchAnalysisV02,
+  options?: { promptVersion?: string; modelName?: string }
+): Promise<SongResearchAnalysis> {
+  const data = await fetchAPI<{ analysis: SongResearchAnalysis }>(
+    `/api/songs/${songId}/research-analyses`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        analysis_json: analysisJson,
+        source: "chatgpt",
+        prompt_version: options?.promptVersion ?? "research-v0.2",
+        model_name: options?.modelName ?? null,
+      }),
+    }
+  );
+  return data.analysis;
+}
+
+export async function fetchResearchItems(params?: {
+  songId?: string;
+  itemType?: ResearchItem["item_type"];
+  isFavorite?: boolean;
+}): Promise<ResearchItem[]> {
+  const search = new URLSearchParams();
+  if (params?.songId) search.set("song_id", params.songId);
+  if (params?.itemType) search.set("item_type", params.itemType);
+  if (params?.isFavorite !== undefined) search.set("is_favorite", String(params.isFavorite));
+  const query = search.toString() ? `?${search}` : "";
+  const data = await fetchAPI<{ items: ResearchItem[] }>(`/api/research-items${query}`);
+  return data.items;
 }
 
 
