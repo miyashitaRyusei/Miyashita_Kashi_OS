@@ -256,6 +256,13 @@ export default function SongDetailPage() {
         {/* =============================== */}
         {/* メタデータカード */}
         {/* =============================== */}
+        <details className="group mb-8 rounded-lg border border-[#e9e9e7] bg-white">
+          <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-[12px] font-bold text-[#5f655f] hover:bg-[#fbfbfa]">
+            詳細分析
+            <span className="text-[10px] font-medium text-[#9ca3af] group-open:hidden">開く</span>
+            <span className="text-[10px] font-medium text-[#9ca3af] hidden group-open:inline">閉じる</span>
+          </summary>
+          <div className="border-t border-[#e9e9e7] p-4">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
           {/* 感情極性 */}
           <div className="border border-[#e9e9e7] rounded-lg p-4 hover:border-[#d4d4d2] transition-colors">
@@ -394,6 +401,8 @@ export default function SongDetailPage() {
         {/* DNA相対比較グラフ */}
         {/* =============================== */}
         <SongComparisonRadar currentSong={song} allSongs={allSongs} />
+          </div>
+        </details>
 
         {/* =============================== */}
         {/* セクション一覧 */}

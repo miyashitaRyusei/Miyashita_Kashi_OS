@@ -8,7 +8,6 @@ import {
   PenLine,
   BookType,
   BookOpen,
-  Settings,
   Menu,
   X,
   Feather,
@@ -20,19 +19,22 @@ import {
 // ============================================
 
 const NAV_ITEMS = [
-  { href: "/", label: "楽曲データベース", icon: Database },
-  { href: "/editor", label: "楽曲登録エディタ", icon: PenLine },
-  { href: "/endings", label: "文末表現辞書", icon: BookType },
-  { href: "/phrases", label: "フレーズ辞書", icon: BookType },
-  { href: "/rules", label: "作詞ルールブック", icon: BookOpen },
-  { href: "/writing", label: "作詞草案エディタ", icon: Feather },
-  { href: "/ideas", label: "アイデアの種", icon: Sprout },
+  { href: "/", label: "書く", icon: Feather },
+  { href: "/songs", label: "参考曲", icon: Database },
+  { href: "/endings", label: "文末辞書", icon: BookType },
+  { href: "/phrases", label: "フレーズ", icon: BookType },
+  { href: "/rules", label: "作詞ルール", icon: BookOpen },
+  { href: "/ideas", label: "アイデア", icon: Sprout },
+] as const;
+
+const TOOL_ITEMS = [
+  { href: "/editor", label: "楽曲を登録・分析", icon: PenLine },
 ] as const;
 
 const BOTTOM_NAV_ITEMS = [
-  { href: "/", label: "曲一覧", icon: Database },
-  { href: "/editor", label: "登録", icon: PenLine },
-  { href: "/writing", label: "作詞", icon: Feather },
+  { href: "/", label: "書く", icon: Feather },
+  { href: "/songs", label: "参考曲", icon: Database },
+  { href: "/endings", label: "文末", icon: BookType },
   { href: "/ideas", label: "アイデア", icon: Sprout },
 ] as const;
 
@@ -109,6 +111,25 @@ export default function Sidebar() {
                   strokeWidth={active ? 2.5 : 2}
                   className={active ? "text-emerald-600" : "text-[#9ca3af]"}
                 />
+                {item.label}
+              </Link>
+            );
+          })}
+
+          <div className="pt-5 pb-2 px-3 text-[9px] font-bold text-[#b3b9b3] tracking-[0.14em] uppercase">
+            Analysis
+          </div>
+          {TOOL_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setIsOpen(false)}
+                className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-[12px] rounded-lg transition-colors font-medium ${active ? "bg-emerald-100/60 text-emerald-900" : "text-[#969c96] hover:bg-emerald-50/80 hover:text-[#596059]"}`}
+              >
+                <Icon size={16} strokeWidth={active ? 2.5 : 2} />
                 {item.label}
               </Link>
             );
