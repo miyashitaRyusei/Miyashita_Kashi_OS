@@ -4,9 +4,16 @@
 ALTER TABLE songs
   ADD COLUMN IF NOT EXISTS reference_tier TEXT;
 
-ALTER TABLE songs
-  ADD CONSTRAINT songs_reference_tier_check
-  CHECK (reference_tier IS NULL OR reference_tier IN ('core', 'selected', 'archive'));
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'songs_reference_tier_check'
+  ) THEN
+    ALTER TABLE songs
+      ADD CONSTRAINT songs_reference_tier_check
+      CHECK (reference_tier IS NULL OR reference_tier IN ('core', 'selected', 'archive'));
+  END IF;
+END $$;
 
 COMMENT ON COLUMN songs.reference_tier IS
   'Manual, song-level research priority. NULL preserves existing rows until classified.';
@@ -73,10 +80,32 @@ CREATE INDEX IF NOT EXISTS idx_research_items_tags
 CREATE INDEX IF NOT EXISTS idx_research_items_examples
   ON research_items USING GIN(examples);
 
+CREATE OR REPLACE FUNCTION set_song_research_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_song_research_updated_at ON song_research_analyses;
+CREATE TRIGGER trg_song_research_updated_at
+  BEFORE UPDATE ON song_research_analyses
+  FOR EACH ROW EXECUTE FUNCTION set_song_research_updated_at();
+
+DROP TRIGGER IF EXISTS trg_research_items_updated_at ON research_items;
+CREATE TRIGGER trg_research_items_updated_at
+  BEFORE UPDATE ON research_items
+  FOR EACH ROW EXECUTE FUNCTION set_song_research_updated_at();
+
+ALTER TABLE song_research_analyses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE research_items ENABLE ROW LEVEL SECURITY;
+
 COMMENT ON TABLE song_research_analyses IS
   'Canonical, lossless imported research JSON. Re-imports create new rows.';
 COMMENT ON TABLE research_items IS
   'Rebuildable search projection derived from song_research_analyses.analysis_json.';
 
--- RLS policies deliberately omitted from this proposal. They must be designed
--- after the live database roles and current policies have been inspected.
+-- No client-facing RLS policies are created here. Before applying this migration,
+-- confirm that the FastAPI backend uses a server-only role that can bypass RLS,
+-- or add narrowly scoped policies matching the live authentication model.
