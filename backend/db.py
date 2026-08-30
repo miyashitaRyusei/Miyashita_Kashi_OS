@@ -380,31 +380,47 @@ def get_research_items(
     *,
     song_id: str | None = None,
     item_type: str | None = None,
+    category: str | None = None,
+    artist: str | None = None,
+    search: str | None = None,
     is_favorite: bool | None = None,
     include_inactive: bool = False,
 ) -> list:
     sb = get_server_supabase()
+    song_join = "songs(title,artist,reference_tier)"
     if include_inactive:
-        query = sb.table("research_items").select("*")
+        query = sb.table("research_items").select(f"*, {song_join}")
     else:
         query = (
             sb.table("research_items")
-            .select("*, song_research_analyses!inner(is_active)")
+            .select(f"*, song_research_analyses!inner(is_active), {song_join}")
             .eq("song_research_analyses.is_active", True)
         )
     if song_id is not None:
         query = query.eq("song_id", song_id)
     if item_type is not None:
         query = query.eq("item_type", item_type)
+    if category is not None:
+        query = query.eq("category", category)
+    if artist is not None:
+        query = query.eq("songs.artist", artist)
+    if search:
+        escaped = search.replace("%", "\\%").replace(",", "\\,")
+        query = query.or_(
+            f"title.ilike.%{escaped}%,content.ilike.%{escaped}%,reuse_hint.ilike.%{escaped}%"
+        )
     if is_favorite is not None:
         query = query.eq("is_favorite", is_favorite)
     rows = query.order("created_at", desc=True).execute().data
-    if include_inactive:
-        return rows
-    return [
-        {key: value for key, value in row.items() if key != "song_research_analyses"}
-        for row in rows
-    ]
+    flattened = []
+    for row in rows:
+        song = row.pop("songs", None) or {}
+        row.pop("song_research_analyses", None)
+        row["song_title"] = song.get("title")
+        row["song_artist"] = song.get("artist")
+        row["reference_tier"] = song.get("reference_tier")
+        flattened.append(row)
+    return flattened
 
 
 # ============================================

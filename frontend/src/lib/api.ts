@@ -19,7 +19,7 @@ import type {
 } from "@/types";
 import type {
   ReferenceTier,
-  ResearchAnalysisV02,
+  ResearchAnalysis,
   ResearchItem,
   SongResearchAnalysis,
 } from "@/types/research";
@@ -128,12 +128,14 @@ export async function updateSongMeta(
 
 export async function updateSongReferenceTier(
   id: string,
-  referenceTier: ReferenceTier | null
+  referenceTier: ReferenceTier | null,
+  adminToken: string,
 ): Promise<Song> {
   const result = await fetchAPI<{ success: boolean; data: Song }>(
     `/api/songs/${id}/reference-tier`,
     {
       method: "PATCH",
+      headers: researchAdminHeaders(adminToken),
       body: JSON.stringify({ reference_tier: referenceTier }),
     }
   );
@@ -142,7 +144,7 @@ export async function updateSongReferenceTier(
 
 export interface ResearchValidationResult {
   valid: true;
-  analysis: ResearchAnalysisV02;
+  analysis: ResearchAnalysis;
   derived_item_count: number;
 }
 
@@ -168,7 +170,7 @@ export async function fetchActiveResearchAnalysis(
 
 export async function importResearchAnalysis(
   songId: string,
-  analysisJson: ResearchAnalysisV02,
+  analysisJson: ResearchAnalysis,
   adminToken: string,
   options?: { promptVersion?: string; modelName?: string }
 ): Promise<SongResearchAnalysis> {
@@ -180,7 +182,7 @@ export async function importResearchAnalysis(
       body: JSON.stringify({
         analysis_json: analysisJson,
         source: "chatgpt",
-        prompt_version: options?.promptVersion ?? "research-v0.2",
+        prompt_version: options?.promptVersion ?? `research-v${analysisJson.schema_version}`,
         model_name: options?.modelName ?? null,
       }),
     }
@@ -193,12 +195,18 @@ export async function fetchResearchItems(params: {
   itemType?: ResearchItem["item_type"];
   isFavorite?: boolean;
   includeInactive?: boolean;
+  category?: string;
+  artist?: string;
+  search?: string;
 } | undefined, adminToken: string): Promise<ResearchItem[]> {
   const search = new URLSearchParams();
   if (params?.songId) search.set("song_id", params.songId);
   if (params?.itemType) search.set("item_type", params.itemType);
   if (params?.isFavorite !== undefined) search.set("is_favorite", String(params.isFavorite));
   if (params?.includeInactive) search.set("include_inactive", "true");
+  if (params?.category) search.set("category", params.category);
+  if (params?.artist) search.set("artist", params.artist);
+  if (params?.search) search.set("search", params.search);
   const query = search.toString() ? `?${search}` : "";
   const data = await fetchAPI<{ items: ResearchItem[] }>(`/api/research-items${query}`, {
     headers: researchAdminHeaders(adminToken),

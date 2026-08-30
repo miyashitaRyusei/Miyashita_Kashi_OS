@@ -26,6 +26,10 @@ class FakeQuery:
         self.calls.append(("order", column, desc))
         return self
 
+    def or_(self, expression):
+        self.calls.append(("or", expression))
+        return self
+
     def execute(self):
         self.calls.append(("execute",))
         rows = self.data
@@ -61,7 +65,7 @@ class ResearchItemsQueryTests(unittest.TestCase):
             rows = db.get_research_items(item_type="technique")
 
         self.assertIn(
-            ("select", "*, song_research_analyses!inner(is_active)"),
+            ("select", "*, song_research_analyses!inner(is_active), songs(title,artist,reference_tier)"),
             client.query.calls,
         )
         self.assertIn(
@@ -84,12 +88,12 @@ class ResearchItemsQueryTests(unittest.TestCase):
                 include_inactive=True,
             )
 
-        self.assertIn(("select", "*"), client.query.calls)
+        self.assertIn(("select", "*, songs(title,artist,reference_tier)"), client.query.calls)
         self.assertNotIn(
             ("eq", "song_research_analyses.is_active", True),
             client.query.calls,
         )
-        self.assertEqual(rows, source_rows)
+        self.assertEqual([row["id"] for row in rows], ["active-item", "inactive-item"])
 
     def test_duplicate_versions_return_eight_active_techniques(self):
         active_rows = [

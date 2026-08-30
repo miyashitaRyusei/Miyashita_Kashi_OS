@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -115,8 +115,63 @@ class ResearchAnalysisV02(StrictModel):
     takeaways: list[Takeaway] = Field(max_length=5)
 
 
+ConstructionKind = Literal[
+    "connection",
+    "comparison",
+    "condition",
+    "negation",
+    "word_order",
+    "modification",
+    "repetition",
+    "other",
+]
+
+
+class Construction(StrictModel):
+    expression: str = Field(min_length=1)
+    kind: ConstructionKind
+    description: str = Field(min_length=1)
+    effect: str = Field(min_length=1)
+    evidence: list[Evidence] = Field(min_length=1)
+    reuse_hint: str = Field(min_length=1)
+    tags: list[str]
+
+
+class SentenceEndingV03(StrictModel):
+    expression: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    effect: str = Field(min_length=1)
+    evidence: list[Evidence] = Field(min_length=1)
+    reuse_hint: str = Field(min_length=1)
+    tags: list[str]
+
+
+class PhraseV03(StrictModel):
+    phrase: str = Field(min_length=1)
+    section: str | None = None
+    description: str = Field(min_length=1)
+    reuse_hint: str = Field(min_length=1)
+    tags: list[str]
+
+
+class TechniqueV03(Technique):
+    description: str = Field(min_length=1)
+    why_it_works: str = Field(min_length=1)
+    reuse_hint: str = Field(min_length=1)
+
+
+class ResearchAnalysisV03(StrictModel):
+    schema_version: Literal["0.3"]
+    song: SongIdentity
+    techniques: list[TechniqueV03]
+    constructions: list[Construction]
+    sentence_endings: list[SentenceEndingV03]
+    phrases: list[PhraseV03]
+
+
 VALIDATORS: dict[str, type[BaseModel]] = {
     "0.2": ResearchAnalysisV02,
+    "0.3": ResearchAnalysisV03,
 }
 
 
@@ -133,7 +188,10 @@ def _format_location(location: tuple[Any, ...]) -> str:
     return result
 
 
-def validate_research_analysis(payload: Any) -> ResearchAnalysisV02:
+ResearchAnalysis = Union[ResearchAnalysisV02, ResearchAnalysisV03]
+
+
+def validate_research_analysis(payload: Any) -> ResearchAnalysis:
     if not isinstance(payload, dict):
         raise ResearchValidationFailure(["$: JSONの最上位はオブジェクトである必要があります。"])
 
@@ -142,7 +200,7 @@ def validate_research_analysis(payload: Any) -> ResearchAnalysisV02:
     if validator is None:
         shown = "未指定" if version is None else repr(version)
         raise ResearchValidationFailure([
-            f"$.schema_version: {shown} は未対応です。現在は \"0.2\" のみ取り込めます。"
+            f"$.schema_version: {shown} は未対応です。現在は \"0.2\" と \"0.3\" を取り込めます。"
         ])
 
     try:
@@ -157,7 +215,7 @@ def validate_research_analysis(payload: Any) -> ResearchAnalysisV02:
     return validated  # type: ignore[return-value]
 
 
-def parse_and_validate_research_json(raw_json: str) -> ResearchAnalysisV02:
+def parse_and_validate_research_json(raw_json: str) -> ResearchAnalysis:
     try:
         payload = __import__("json").loads(raw_json)
     except ValueError as exc:
@@ -169,9 +227,12 @@ def _evidence_examples(items: list[Evidence]) -> list[dict[str, Any]]:
     return [item.model_dump(exclude_none=True) for item in items]
 
 
-def derive_research_items(analysis: ResearchAnalysisV02) -> list[dict[str, Any]]:
+def derive_research_items(analysis: ResearchAnalysis) -> list[dict[str, Any]]:
     """Create replaceable search rows. The validated analysis remains canonical."""
     rows: list[dict[str, Any]] = []
+
+    if isinstance(analysis, ResearchAnalysisV03):
+        return _derive_v03_items(analysis)
 
     for insight in analysis.summary.key_insights:
         rows.append({
@@ -271,6 +332,63 @@ def derive_research_items(analysis: ResearchAnalysisV02) -> list[dict[str, Any]]
             "reuse_hint": item.how_to_use or None,
             "examples": [],
             "tags": [],
+        })
+
+    return rows
+
+
+def _derive_v03_items(analysis: ResearchAnalysisV03) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+
+    for item in analysis.techniques:
+        rows.append({
+            "item_type": "technique",
+            "category": item.category,
+            "title": item.name,
+            "content": item.description,
+            "effect": item.why_it_works,
+            "reuse_hint": item.reuse_hint,
+            "examples": _evidence_examples(item.evidence),
+            "tags": item.tags,
+        })
+
+    for item in analysis.constructions:
+        rows.append({
+            "item_type": "modifier" if item.kind == "modification" else "connection",
+            "category": item.kind,
+            "title": item.expression,
+            "content": item.description,
+            "effect": item.effect,
+            "reuse_hint": item.reuse_hint,
+            "examples": _evidence_examples(item.evidence),
+            "tags": item.tags,
+        })
+
+    for item in analysis.sentence_endings:
+        rows.append({
+            "item_type": "sentence_ending",
+            "category": None,
+            "title": item.expression,
+            "content": item.description,
+            "effect": item.effect,
+            "reuse_hint": item.reuse_hint,
+            "examples": _evidence_examples(item.evidence),
+            "tags": item.tags,
+        })
+
+    for item in analysis.phrases:
+        example: dict[str, Any] = {"quote": item.phrase}
+        if item.section:
+            example["section"] = item.section
+        rows.append({
+            "item_type": "notable_phrase",
+            "category": None,
+            "title": item.phrase,
+            "content": item.description,
+            "effect": None,
+            "reuse_hint": item.reuse_hint,
+            "examples": [example],
+            "tags": item.tags,
         })
 
     return rows

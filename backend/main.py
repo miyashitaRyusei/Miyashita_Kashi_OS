@@ -288,7 +288,11 @@ async def update_song_meta_endpoint(song_id: str, body: SongMetaUpdate):
 
 
 @app.patch("/api/songs/{song_id}/reference-tier")
-async def update_song_reference_tier(song_id: str, body: SongReferenceTierUpdate):
+async def update_song_reference_tier(
+    song_id: str,
+    body: SongReferenceTierUpdate,
+    _: None = Depends(require_research_admin_token),
+):
     if body.reference_tier not in {None, "core", "selected", "archive"}:
         raise HTTPException(status_code=422, detail="reference_tier must be core, selected, archive, or null")
     try:
@@ -327,6 +331,12 @@ async def validate_research_analysis_api(req: ResearchAnalysisImportRequest):
 async def get_research_analysis_schema_v02():
     from research_analysis import ResearchAnalysisV02
     return ResearchAnalysisV02.model_json_schema()
+
+
+@app.get("/api/research-analyses/schema/0.3")
+async def get_research_analysis_schema_v03():
+    from research_analysis import ResearchAnalysisV03
+    return ResearchAnalysisV03.model_json_schema()
 
 
 @app.get("/api/songs/{song_id}/research-analyses")
@@ -400,6 +410,9 @@ async def import_song_research_analysis(
 async def get_research_items_api(
     song_id: Optional[str] = None,
     item_type: Optional[str] = None,
+    category: Optional[str] = None,
+    artist: Optional[str] = None,
+    search: Optional[str] = None,
     is_favorite: Optional[bool] = None,
     include_inactive: bool = False,
     _: None = Depends(require_research_admin_token),
@@ -414,6 +427,9 @@ async def get_research_items_api(
         return {"items": db.get_research_items(
             song_id=song_id,
             item_type=item_type,
+            category=category,
+            artist=artist,
+            search=search,
             is_favorite=is_favorite,
             include_inactive=include_inactive,
         )}

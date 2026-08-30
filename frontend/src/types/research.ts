@@ -1,4 +1,4 @@
-export const RESEARCH_SCHEMA_VERSION = "0.2" as const;
+export const RESEARCH_SCHEMA_VERSION = "0.3" as const;
 
 export type ReferenceTier = "core" | "selected" | "archive";
 
@@ -69,7 +69,7 @@ export interface ResearchTakeaway {
 }
 
 export interface ResearchAnalysisV02 {
-  schema_version: typeof RESEARCH_SCHEMA_VERSION;
+  schema_version: "0.2";
   song: { id: string; title: string; artist: string };
   summary: { overview: string; key_insights: string[] };
   techniques: ResearchTechnique[];
@@ -89,13 +89,36 @@ export interface ResearchAnalysisV02 {
   takeaways: ResearchTakeaway[];
 }
 
+export type ConstructionKind = "connection" | "comparison" | "condition" | "negation" | "word_order" | "modification" | "repetition" | "other";
+
+export interface ResearchConstruction {
+  expression: string;
+  kind: ConstructionKind;
+  description: string;
+  effect: string;
+  evidence: ResearchEvidence[];
+  reuse_hint: string;
+  tags: string[];
+}
+
+export interface ResearchAnalysisV03 {
+  schema_version: "0.3";
+  song: { id: string; title: string; artist: string };
+  techniques: ResearchTechnique[];
+  constructions: ResearchConstruction[];
+  sentence_endings: ResearchExpressionPattern[];
+  phrases: ResearchNotablePhrase[];
+}
+
+export type ResearchAnalysis = ResearchAnalysisV02 | ResearchAnalysisV03;
+
 export interface SongResearchAnalysis {
   id: string;
   song_id: string;
   source: "chatgpt" | "manual" | "other";
   schema_version: string;
   title: string;
-  analysis_json: ResearchAnalysisV02;
+  analysis_json: ResearchAnalysis;
   prompt_version: string | null;
   model_name: string | null;
   is_active: boolean;
@@ -130,4 +153,7 @@ export interface ResearchItem {
   personal_note: string | null;
   created_at: string;
   updated_at: string;
+  song_title?: string | null;
+  song_artist?: string | null;
+  reference_tier?: ReferenceTier | null;
 }
