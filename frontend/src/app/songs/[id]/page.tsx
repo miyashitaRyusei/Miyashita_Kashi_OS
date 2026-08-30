@@ -294,6 +294,30 @@ export default function SongDetailPage() {
           </select>
         </div>
 
+        <section className="mb-8 rounded-lg border border-[#e1e7e1] bg-white px-5 py-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Lyrics</p>
+              <h2 className="mt-1 text-[15px] font-bold text-[#3d4740]">歌詞</h2>
+            </div>
+            <span className="text-[10px] text-[#929a94]">{song.sections?.length ?? 0} sections</span>
+          </div>
+          <div className="space-y-5">
+            {[...(song.sections ?? [])]
+              .sort((a, b) => a.order_index - b.order_index)
+              .map((section, sectionIndex) => (
+                <div key={section.id || `lyrics-${sectionIndex}`}>
+                  <p className="mb-2 text-[10px] font-bold tracking-[0.12em] text-[#8a938c]">{section.section_type}</p>
+                  <div className="space-y-1 text-[13px] leading-7 text-[#3f4741]">
+                    {[...(section.lines ?? [])]
+                      .sort((a, b) => a.line_number - b.line_number)
+                      .map((line) => <p key={line.id}>{line.text}</p>)}
+                  </div>
+                </div>
+              ))}
+          </div>
+        </section>
+
         <ResearchAnalysisPanel song={song} />
 
         <details className="group mb-8 rounded-lg border border-[#e9e9e7] bg-white">
@@ -449,7 +473,7 @@ export default function SongDetailPage() {
         {/* =============================== */}
         <div>
           <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider mb-4">
-            セクション一覧 ({song.sections?.length ?? 0})
+            旧・セクション詳細分析 ({song.sections?.length ?? 0})
           </h2>
           <div className="space-y-3">
             {song.sections && song.sections.length > 0 ? (
@@ -459,7 +483,7 @@ export default function SongDetailPage() {
                   <SectionAccordion
                     key={section.id || `sec-${idx}`}
                     section={section}
-                    defaultOpen={idx === 0}
+                    defaultOpen={false}
                   />
                 ))
             ) : (
