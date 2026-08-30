@@ -5,11 +5,28 @@ db.py — Supabase連携モジュール (Phase 5 リレーショナル版)
 Phase 1のSQLスキーマに完全適合するように修正済み。
 """
 
+import base64
+import json
 import os
 from supabase import create_client, Client
 from typing import Any, Optional
 
 _supabase: Optional[Client] = None
+_server_supabase: Optional[Client] = None
+
+
+def _get_legacy_jwt_role(key: str) -> str | None:
+    """Read only the JWT role claim without logging or verifying secret material."""
+    parts = key.split(".")
+    if len(parts) != 3:
+        return None
+    try:
+        payload = parts[1] + "=" * (-len(parts[1]) % 4)
+        decoded = base64.urlsafe_b64decode(payload.encode("ascii"))
+        role = json.loads(decoded.decode("utf-8")).get("role")
+        return role if isinstance(role, str) else None
+    except (ValueError, UnicodeError, json.JSONDecodeError):
+        return None
 
 
 def get_supabase() -> Client:
@@ -24,6 +41,40 @@ def get_supabase() -> Client:
             )
         _supabase = create_client(url, key)
     return _supabase
+
+
+def get_server_supabase() -> Client:
+    """Return the server-only client required for RLS-protected operations.
+
+    New Supabase secret keys should use SUPABASE_SECRET_KEY. The legacy JWT
+    service-role key can use SUPABASE_SERVICE_ROLE_KEY during migration.
+    SUPABASE_KEY is intentionally not used here because it is currently a
+    publishable/anon credential and cannot bypass RLS.
+    """
+    global _server_supabase
+    if _server_supabase is None:
+        url = os.environ.get("SUPABASE_URL")
+        key = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get(
+            "SUPABASE_SERVICE_ROLE_KEY"
+        )
+        if not url or not key:
+            raise RuntimeError(
+                "Server-side Supabase credentials are not configured. Set "
+                "SUPABASE_SECRET_KEY (preferred) or SUPABASE_SERVICE_ROLE_KEY "
+                "on the FastAPI server only."
+            )
+        if key.startswith("sb_publishable_"):
+            raise RuntimeError(
+                "The configured server-side Supabase key is publishable and "
+                "cannot access the RLS-protected research tables."
+            )
+        if _get_legacy_jwt_role(key) in {"anon", "authenticated"}:
+            raise RuntimeError(
+                "The configured server-side Supabase JWT is not a service-role "
+                "credential and cannot access the RLS-protected research tables."
+            )
+        _server_supabase = create_client(url, key)
+    return _server_supabase
 
 
 # ============================================
@@ -258,7 +309,7 @@ def update_song_meta(song_id: str, title: str, artist: str) -> Optional[dict]:
 
 def update_song_reference_tier(song_id: str, reference_tier: str | None) -> Optional[dict]:
     """Update the manually assigned research tier after migration 0005 is applied."""
-    sb = get_supabase()
+    sb = get_server_supabase()
     result = (
         sb.table("songs")
         .update({"reference_tier": reference_tier})
@@ -273,7 +324,7 @@ def update_song_reference_tier(song_id: str, reference_tier: str | None) -> Opti
 # ============================================
 
 def get_song_research_analyses(song_id: str) -> list:
-    sb = get_supabase()
+    sb = get_server_supabase()
     result = (
         sb.table("song_research_analyses")
         .select("*")
@@ -285,7 +336,7 @@ def get_song_research_analyses(song_id: str) -> list:
 
 
 def get_active_song_research_analysis(song_id: str) -> Optional[dict]:
-    sb = get_supabase()
+    sb = get_server_supabase()
     result = (
         sb.table("song_research_analyses")
         .select("*")
@@ -308,46 +359,21 @@ def save_song_research_analysis(
     prompt_version: str | None = None,
     model_name: str | None = None,
 ) -> dict:
-    """Save a new immutable version, its projection, then make it active.
-
-    Existing versions are retained. The new row remains inactive if projection
-    creation fails, so the previous active analysis is not hidden.
-    """
-    sb = get_supabase()
-    analysis_result = sb.table("song_research_analyses").insert({
-        "song_id": song_id,
-        "source": source,
-        "schema_version": schema_version,
-        "title": title,
-        "analysis_json": analysis_json,
-        "prompt_version": prompt_version,
-        "model_name": model_name,
-        "is_active": False,
+    """Atomically save a new version, projection, and active-version switch."""
+    sb = get_server_supabase()
+    result = sb.rpc("import_song_research_analysis", {
+        "p_song_id": song_id,
+        "p_source": source,
+        "p_schema_version": schema_version,
+        "p_title": title,
+        "p_analysis_json": analysis_json,
+        "p_prompt_version": prompt_version,
+        "p_model_name": model_name,
+        "p_research_items": derived_items,
     }).execute()
-    analysis = analysis_result.data[0]
-    analysis_id = analysis["id"]
-
-    if derived_items:
-        rows = [
-            {**item, "analysis_id": analysis_id, "song_id": song_id}
-            for item in derived_items
-        ]
-        sb.table("research_items").insert(rows).execute()
-
-    (
-        sb.table("song_research_analyses")
-        .update({"is_active": False})
-        .eq("song_id", song_id)
-        .eq("is_active", True)
-        .execute()
-    )
-    activated = (
-        sb.table("song_research_analyses")
-        .update({"is_active": True, "updated_at": "now()"})
-        .eq("id", analysis_id)
-        .execute()
-    )
-    return activated.data[0]
+    if not result.data or not isinstance(result.data, dict):
+        raise RuntimeError("Research import RPC did not return the saved analysis.")
+    return result.data
 
 
 def get_research_items(
@@ -356,7 +382,7 @@ def get_research_items(
     item_type: str | None = None,
     is_favorite: bool | None = None,
 ) -> list:
-    sb = get_supabase()
+    sb = get_server_supabase()
     query = sb.table("research_items").select("*")
     if song_id is not None:
         query = query.eq("song_id", song_id)
