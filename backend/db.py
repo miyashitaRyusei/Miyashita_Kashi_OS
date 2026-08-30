@@ -381,16 +381,30 @@ def get_research_items(
     song_id: str | None = None,
     item_type: str | None = None,
     is_favorite: bool | None = None,
+    include_inactive: bool = False,
 ) -> list:
     sb = get_server_supabase()
-    query = sb.table("research_items").select("*")
+    if include_inactive:
+        query = sb.table("research_items").select("*")
+    else:
+        query = (
+            sb.table("research_items")
+            .select("*, song_research_analyses!inner(is_active)")
+            .eq("song_research_analyses.is_active", True)
+        )
     if song_id is not None:
         query = query.eq("song_id", song_id)
     if item_type is not None:
         query = query.eq("item_type", item_type)
     if is_favorite is not None:
         query = query.eq("is_favorite", is_favorite)
-    return query.order("created_at", desc=True).execute().data
+    rows = query.order("created_at", desc=True).execute().data
+    if include_inactive:
+        return rows
+    return [
+        {key: value for key, value in row.items() if key != "song_research_analyses"}
+        for row in rows
+    ]
 
 
 # ============================================

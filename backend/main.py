@@ -401,6 +401,7 @@ async def get_research_items_api(
     song_id: Optional[str] = None,
     item_type: Optional[str] = None,
     is_favorite: Optional[bool] = None,
+    include_inactive: bool = False,
     _: None = Depends(require_research_admin_token),
 ):
     allowed_types = {
@@ -414,6 +415,7 @@ async def get_research_items_api(
             song_id=song_id,
             item_type=item_type,
             is_favorite=is_favorite,
+            include_inactive=include_inactive,
         )}
     except Exception as e:
         traceback.print_exc()

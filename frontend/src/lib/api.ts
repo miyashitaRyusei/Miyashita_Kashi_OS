@@ -192,11 +192,13 @@ export async function fetchResearchItems(params: {
   songId?: string;
   itemType?: ResearchItem["item_type"];
   isFavorite?: boolean;
+  includeInactive?: boolean;
 } | undefined, adminToken: string): Promise<ResearchItem[]> {
   const search = new URLSearchParams();
   if (params?.songId) search.set("song_id", params.songId);
   if (params?.itemType) search.set("item_type", params.itemType);
   if (params?.isFavorite !== undefined) search.set("is_favorite", String(params.isFavorite));
+  if (params?.includeInactive) search.set("include_inactive", "true");
   const query = search.toString() ? `?${search}` : "";
   const data = await fetchAPI<{ items: ResearchItem[] }>(`/api/research-items${query}`, {
     headers: researchAdminHeaders(adminToken),
