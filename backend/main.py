@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Any, List, Optional
 import json
 import db
 import traceback
@@ -9,6 +9,11 @@ from dotenv import load_dotenv
 
 from analyzer.rule_based import RuleBasedAnalyzer
 from analyzer.llm_analyzer import LLMAnalyzer
+from research_analysis import (
+    ResearchValidationFailure,
+    derive_research_items,
+    validate_research_analysis,
+)
 
 # 環境変数の読み込み
 load_dotenv()
@@ -267,12 +272,137 @@ class SongMetaUpdate(BaseModel):
     title: str
     artist: str
 
+class SongReferenceTierUpdate(BaseModel):
+    reference_tier: Optional[str] = None
+
 @app.put("/api/songs/{song_id}")
 async def update_song_meta_endpoint(song_id: str, body: SongMetaUpdate):
     """楽曲のタイトル・アーティスト名を更新する"""
     try:
         result = db.update_song_meta(song_id, body.title, body.artist)
         return {"success": result is not None, "data": result}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/api/songs/{song_id}/reference-tier")
+async def update_song_reference_tier(song_id: str, body: SongReferenceTierUpdate):
+    if body.reference_tier not in {None, "core", "selected", "archive"}:
+        raise HTTPException(status_code=422, detail="reference_tier must be core, selected, archive, or null")
+    try:
+        result = db.update_song_reference_tier(song_id, body.reference_tier)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Song not found")
+        return {"success": True, "data": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class ResearchAnalysisImportRequest(BaseModel):
+    analysis_json: dict[str, Any]
+    source: str = "chatgpt"
+    prompt_version: Optional[str] = None
+    model_name: Optional[str] = None
+
+
+@app.post("/api/research-analyses/validate")
+async def validate_research_analysis_api(req: ResearchAnalysisImportRequest):
+    try:
+        analysis = validate_research_analysis(req.analysis_json)
+        return {
+            "valid": True,
+            "analysis": analysis.model_dump(mode="json"),
+            "derived_item_count": len(derive_research_items(analysis)),
+        }
+    except ResearchValidationFailure as exc:
+        raise HTTPException(status_code=422, detail={"message": "研究分析JSONに問題があります。", "errors": exc.errors})
+
+
+@app.get("/api/research-analyses/schema/0.2")
+async def get_research_analysis_schema_v02():
+    from research_analysis import ResearchAnalysisV02
+    return ResearchAnalysisV02.model_json_schema()
+
+
+@app.get("/api/songs/{song_id}/research-analyses")
+async def get_song_research_analyses_api(song_id: str):
+    try:
+        return {"analyses": db.get_song_research_analyses(song_id)}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/songs/{song_id}/research-analysis")
+async def get_active_song_research_analysis_api(song_id: str):
+    try:
+        return {"analysis": db.get_active_song_research_analysis(song_id)}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/songs/{song_id}/research-analyses", status_code=201)
+async def import_song_research_analysis(song_id: str, req: ResearchAnalysisImportRequest):
+    if req.source not in {"chatgpt", "manual", "other"}:
+        raise HTTPException(status_code=422, detail="source must be chatgpt, manual, or other")
+    try:
+        song = db.get_song_by_id(song_id)
+        if song is None:
+            raise HTTPException(status_code=404, detail="Song not found")
+
+        analysis = validate_research_analysis(req.analysis_json)
+        if analysis.song.id != song_id:
+            raise HTTPException(status_code=422, detail={
+                "message": "研究分析JSONに問題があります。",
+                "errors": ["$.song.id: 取り込み先の楽曲IDと一致しません。"],
+            })
+
+        saved = db.save_song_research_analysis(
+            song_id=song_id,
+            source=req.source,
+            schema_version=analysis.schema_version,
+            title=f"{analysis.song.artist}「{analysis.song.title}」研究分析",
+            analysis_json=req.analysis_json,
+            derived_items=derive_research_items(analysis),
+            prompt_version=req.prompt_version,
+            model_name=req.model_name,
+        )
+        return {"analysis": saved}
+    except (HTTPException, ResearchValidationFailure) as exc:
+        if isinstance(exc, ResearchValidationFailure):
+            raise HTTPException(status_code=422, detail={
+                "message": "研究分析JSONに問題があります。",
+                "errors": exc.errors,
+            }) from exc
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/research-items")
+async def get_research_items_api(
+    song_id: Optional[str] = None,
+    item_type: Optional[str] = None,
+    is_favorite: Optional[bool] = None,
+):
+    allowed_types = {
+        "summary_insight", "technique", "sentence_ending", "connection",
+        "modifier", "notable_phrase", "motif", "structure", "takeaway",
+    }
+    if item_type is not None and item_type not in allowed_types:
+        raise HTTPException(status_code=422, detail="Unsupported item_type")
+    try:
+        return {"items": db.get_research_items(
+            song_id=song_id,
+            item_type=item_type,
+            is_favorite=is_favorite,
+        )}
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

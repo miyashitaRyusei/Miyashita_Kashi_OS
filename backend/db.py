@@ -7,7 +7,7 @@ Phase 1のSQLスキーマに完全適合するように修正済み。
 
 import os
 from supabase import create_client, Client
-from typing import Optional
+from typing import Any, Optional
 
 _supabase: Optional[Client] = None
 
@@ -254,6 +254,117 @@ def update_song_meta(song_id: str, title: str, artist: str) -> Optional[dict]:
     sb = get_supabase()
     result = sb.table("songs").update({"title": title, "artist": artist}).eq("id", song_id).execute()
     return result.data[0] if result.data else None
+
+
+def update_song_reference_tier(song_id: str, reference_tier: str | None) -> Optional[dict]:
+    """Update the manually assigned research tier after migration 0005 is applied."""
+    sb = get_supabase()
+    result = (
+        sb.table("songs")
+        .update({"reference_tier": reference_tier})
+        .eq("id", song_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+# ============================================
+# ChatGPT Research Analyses (migration 0005)
+# ============================================
+
+def get_song_research_analyses(song_id: str) -> list:
+    sb = get_supabase()
+    result = (
+        sb.table("song_research_analyses")
+        .select("*")
+        .eq("song_id", song_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data
+
+
+def get_active_song_research_analysis(song_id: str) -> Optional[dict]:
+    sb = get_supabase()
+    result = (
+        sb.table("song_research_analyses")
+        .select("*")
+        .eq("song_id", song_id)
+        .eq("is_active", True)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+def save_song_research_analysis(
+    *,
+    song_id: str,
+    source: str,
+    schema_version: str,
+    title: str,
+    analysis_json: dict[str, Any],
+    derived_items: list[dict[str, Any]],
+    prompt_version: str | None = None,
+    model_name: str | None = None,
+) -> dict:
+    """Save a new immutable version, its projection, then make it active.
+
+    Existing versions are retained. The new row remains inactive if projection
+    creation fails, so the previous active analysis is not hidden.
+    """
+    sb = get_supabase()
+    analysis_result = sb.table("song_research_analyses").insert({
+        "song_id": song_id,
+        "source": source,
+        "schema_version": schema_version,
+        "title": title,
+        "analysis_json": analysis_json,
+        "prompt_version": prompt_version,
+        "model_name": model_name,
+        "is_active": False,
+    }).execute()
+    analysis = analysis_result.data[0]
+    analysis_id = analysis["id"]
+
+    if derived_items:
+        rows = [
+            {**item, "analysis_id": analysis_id, "song_id": song_id}
+            for item in derived_items
+        ]
+        sb.table("research_items").insert(rows).execute()
+
+    (
+        sb.table("song_research_analyses")
+        .update({"is_active": False})
+        .eq("song_id", song_id)
+        .eq("is_active", True)
+        .execute()
+    )
+    activated = (
+        sb.table("song_research_analyses")
+        .update({"is_active": True, "updated_at": "now()"})
+        .eq("id", analysis_id)
+        .execute()
+    )
+    return activated.data[0]
+
+
+def get_research_items(
+    *,
+    song_id: str | None = None,
+    item_type: str | None = None,
+    is_favorite: bool | None = None,
+) -> list:
+    sb = get_supabase()
+    query = sb.table("research_items").select("*")
+    if song_id is not None:
+        query = query.eq("song_id", song_id)
+    if item_type is not None:
+        query = query.eq("item_type", item_type)
+    if is_favorite is not None:
+        query = query.eq("is_favorite", is_favorite)
+    return query.order("created_at", desc=True).execute().data
 
 
 # ============================================
