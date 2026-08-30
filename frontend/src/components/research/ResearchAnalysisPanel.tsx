@@ -10,12 +10,14 @@ import {
 } from "@/lib/api";
 import { buildResearchPrompt } from "@/lib/research-prompt";
 import type { ResearchAnalysisV02, SongResearchAnalysis } from "@/types/research";
+import { useResearchAdminToken } from "@/hooks/useResearchAdminToken";
+import ResearchAdminTokenPrompt from "@/components/research/ResearchAdminTokenPrompt";
 
 type ImportStep = "paste" | "preview" | "saving";
 
 export default function ResearchAnalysisPanel({ song }: { song: SongWithDetails }) {
-  const [record, setRecord] = useState<SongResearchAnalysis | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { token, ready, saveToken, clearToken } = useResearchAdminToken();
+  const [recordState, setRecordState] = useState<{ key: string; record: SongResearchAnalysis | null; loading: boolean }>({ key: "", record: null, loading: true });
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
   const [rawJson, setRawJson] = useState("");
@@ -23,18 +25,23 @@ export default function ResearchAnalysisPanel({ song }: { song: SongWithDetails 
   const [derivedCount, setDerivedCount] = useState(0);
   const [step, setStep] = useState<ImportStep>("paste");
   const [errors, setErrors] = useState<string[]>([]);
+  const recordKey = `${song.id}:${token}`;
+  const { record, loading } = recordState.key === recordKey
+    ? recordState
+    : { record: null, loading: Boolean(token) };
 
   useEffect(() => {
+    if (!ready) return;
+    if (!token) return;
     let cancelled = false;
-    fetchActiveResearchAnalysis(song.id)
-      .then((analysis) => { if (!cancelled) setRecord(analysis); })
+    fetchActiveResearchAnalysis(song.id, token)
+      .then((analysis) => { if (!cancelled) setRecordState({ key: recordKey, record: analysis, loading: false }); })
       .catch(() => {
         // Expected before migration 0005 is applied. Existing song detail stays usable.
-        if (!cancelled) setRecord(null);
+        if (!cancelled) setRecordState({ key: recordKey, record: null, loading: false });
       })
-      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [song.id]);
+  }, [ready, recordKey, song.id, token]);
 
   const analysis = record?.analysis_json ?? null;
 
@@ -89,8 +96,8 @@ export default function ResearchAnalysisPanel({ song }: { song: SongWithDetails 
     setStep("saving");
     setErrors([]);
     try {
-      const saved = await importResearchAnalysis(song.id, validated);
-      setRecord(saved);
+      const saved = await importResearchAnalysis(song.id, validated, token);
+      setRecordState({ key: recordKey, record: saved, loading: false });
       setOpen(false);
       setRawJson("");
       setValidated(null);
@@ -112,6 +119,7 @@ export default function ResearchAnalysisPanel({ song }: { song: SongWithDetails 
           <h2 className="mt-1 text-[16px] font-bold text-[#334039]">ChatGPT研究分析</h2>
         </div>
         <div className="flex gap-2">
+          {token && <button onClick={clearToken} className="rounded-md border border-[#dfe5df] bg-white px-3 py-2 text-[10px] font-bold text-[#737b75] hover:bg-[#f4f6f4]">トークン解除</button>}
           <button onClick={copyPrompt} className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-white px-3 py-2 text-[11px] font-bold text-emerald-800 hover:bg-emerald-50">
             {copied ? <Check size={13} /> : <Clipboard size={13} />}
             {copied ? "コピーしました" : "分析用プロンプトをコピー"}
@@ -123,7 +131,9 @@ export default function ResearchAnalysisPanel({ song }: { song: SongWithDetails 
       </div>
 
       <div className="p-5">
-        {loading ? (
+        {!ready ? null : !token ? (
+          <ResearchAdminTokenPrompt onSubmit={saveToken} />
+        ) : loading ? (
           <p className="text-[12px] text-[#8a938c]">研究分析を確認中...</p>
         ) : analysis ? (
           <ResearchAnalysisView analysis={analysis} />

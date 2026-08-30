@@ -30,6 +30,13 @@ import type {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+function researchAdminHeaders(token: string): HeadersInit {
+  return {
+    "Content-Type": "application/json",
+    "X-Research-Admin-Token": token,
+  };
+}
+
 // ============================================
 // ネストされた詳細型（API レスポンス用）
 // ============================================
@@ -149,10 +156,12 @@ export async function validateResearchAnalysis(
 }
 
 export async function fetchActiveResearchAnalysis(
-  songId: string
+  songId: string,
+  adminToken: string
 ): Promise<SongResearchAnalysis | null> {
   const data = await fetchAPI<{ analysis: SongResearchAnalysis | null }>(
-    `/api/songs/${songId}/research-analysis`
+    `/api/songs/${songId}/research-analysis`,
+    { headers: researchAdminHeaders(adminToken) }
   );
   return data.analysis;
 }
@@ -160,12 +169,14 @@ export async function fetchActiveResearchAnalysis(
 export async function importResearchAnalysis(
   songId: string,
   analysisJson: ResearchAnalysisV02,
+  adminToken: string,
   options?: { promptVersion?: string; modelName?: string }
 ): Promise<SongResearchAnalysis> {
   const data = await fetchAPI<{ analysis: SongResearchAnalysis }>(
     `/api/songs/${songId}/research-analyses`,
     {
       method: "POST",
+      headers: researchAdminHeaders(adminToken),
       body: JSON.stringify({
         analysis_json: analysisJson,
         source: "chatgpt",
@@ -177,17 +188,19 @@ export async function importResearchAnalysis(
   return data.analysis;
 }
 
-export async function fetchResearchItems(params?: {
+export async function fetchResearchItems(params: {
   songId?: string;
   itemType?: ResearchItem["item_type"];
   isFavorite?: boolean;
-}): Promise<ResearchItem[]> {
+} | undefined, adminToken: string): Promise<ResearchItem[]> {
   const search = new URLSearchParams();
   if (params?.songId) search.set("song_id", params.songId);
   if (params?.itemType) search.set("item_type", params.itemType);
   if (params?.isFavorite !== undefined) search.set("is_favorite", String(params.isFavorite));
   const query = search.toString() ? `?${search}` : "";
-  const data = await fetchAPI<{ items: ResearchItem[] }>(`/api/research-items${query}`);
+  const data = await fetchAPI<{ items: ResearchItem[] }>(`/api/research-items${query}`, {
+    headers: researchAdminHeaders(adminToken),
+  });
   return data.items;
 }
 
@@ -294,7 +307,13 @@ export async function updateDictionaryPreference(
   isDeleted: boolean,
   memo?: string
 ) {
-  const bodyData: any = {
+  const bodyData: {
+    item_type: string;
+    item_key: string;
+    is_favorite: boolean;
+    is_deleted: boolean;
+    memo?: string;
+  } = {
     item_type: itemType,
     item_key: itemKey,
     is_favorite: isFavorite,

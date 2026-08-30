@@ -6,18 +6,25 @@ import { Archive, BookOpen, Heart, Search } from "lucide-react";
 import type { Song } from "@/types";
 import type { ReferenceTier, SongResearchAnalysis } from "@/types/research";
 import { fetchActiveResearchAnalysis, fetchSongs, updateSongReferenceTier } from "@/lib/api";
+import { useResearchAdminToken } from "@/hooks/useResearchAdminToken";
+import ResearchAdminTokenPrompt from "@/components/research/ResearchAdminTokenPrompt";
 
 const TIER_LABELS: Record<ReferenceTier, string> = { core: "Core", selected: "Selected", archive: "Archive" };
 
 export default function LibraryPage() {
+  const { token, ready, saveToken, clearToken } = useResearchAdminToken();
   const [songs, setSongs] = useState<Song[]>([]);
-  const [analyses, setAnalyses] = useState<Record<string, SongResearchAnalysis | null>>({});
+  const [analysisState, setAnalysisState] = useState<{ token: string; values: Record<string, SongResearchAnalysis | null> }>({ token: "", values: {} });
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [includeArchive, setIncludeArchive] = useState(false);
   const [includeUnclassified, setIncludeUnclassified] = useState(false);
 
   useEffect(() => { fetchSongs().then(setSongs).finally(() => setLoading(false)); }, []);
+  const analyses = useMemo(
+    () => analysisState.token === token ? analysisState.values : {},
+    [analysisState, token],
+  );
 
   const visibleSongs = useMemo(() => songs.filter((song) => {
     const tierVisible = song.reference_tier === "core" || song.reference_tier === "selected" || (includeArchive && song.reference_tier === "archive") || (includeUnclassified && !song.reference_tier);
@@ -26,15 +33,26 @@ export default function LibraryPage() {
   }), [includeArchive, includeUnclassified, query, songs]);
 
   useEffect(() => {
+    if (!ready || !token) return;
     const missing = visibleSongs.filter((song) => !(song.id in analyses));
     if (missing.length === 0) return;
     let cancelled = false;
     Promise.all(missing.map(async (song) => {
-      try { return [song.id, await fetchActiveResearchAnalysis(song.id)] as const; }
+      try { return [song.id, await fetchActiveResearchAnalysis(song.id, token)] as const; }
       catch { return [song.id, null] as const; }
-    })).then((entries) => { if (!cancelled) setAnalyses((current) => ({ ...current, ...Object.fromEntries(entries) })); });
+    })).then((entries) => {
+      if (!cancelled) {
+        setAnalysisState((current) => ({
+          token,
+          values: {
+            ...(current.token === token ? current.values : {}),
+            ...Object.fromEntries(entries),
+          },
+        }));
+      }
+    });
     return () => { cancelled = true; };
-  }, [analyses, visibleSongs]);
+  }, [analyses, ready, token, visibleSongs]);
 
   const changeTier = async (song: Song, tier: ReferenceTier | null) => {
     try {
@@ -44,6 +62,8 @@ export default function LibraryPage() {
   };
 
   return <div className="flex-1 overflow-y-auto bg-[#fafcfa]"><div className="mx-auto max-w-6xl px-6 py-8 lg:px-10">
+    {ready && !token && <div className="mb-5"><ResearchAdminTokenPrompt onSubmit={saveToken} /></div>}
+    {ready && token && <div className="mb-3 text-right"><button onClick={clearToken} className="text-[10px] font-bold text-[#7b847d] hover:text-amber-700">研究トークンを解除</button></div>}
     <header className="mb-7 flex flex-wrap items-end justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">Lyric Research</p><h1 className="mt-1 text-2xl font-bold text-[#333b35]">歌詞ライブラリ</h1><p className="mt-2 text-[12px] text-[#7c857e]">好きな書き方を、曲から技法・表現・モチーフへ育てる研究棚</p></div><Link href="/editor" className="rounded-md bg-emerald-700 px-4 py-2 text-[11px] font-bold text-white hover:bg-emerald-800">楽曲を登録</Link></header>
     <div className="mb-5 flex flex-wrap items-center gap-2 rounded-lg border border-[#e1e7e1] bg-white p-3">
       <label className="flex min-w-[240px] flex-1 items-center gap-2 rounded-md border border-[#dfe5df] px-3 py-2"><Search size={14} className="text-[#9ba39d]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="タイトル・アーティストを検索" className="w-full bg-transparent text-[12px] outline-none" /></label>
@@ -52,7 +72,7 @@ export default function LibraryPage() {
       <Link href="/songs" className="px-2 text-[11px] font-bold text-[#7b847d] hover:text-emerald-700">旧比較画面</Link>
     </div>
     {loading ? <p className="py-20 text-center text-[12px] text-[#8b948d]">ライブラリを読み込み中...</p> : visibleSongs.length > 0 ? <div className="overflow-hidden rounded-lg border border-[#e1e7e1] bg-white">{visibleSongs.map((song) => {
-      const analysis = analyses[song.id]?.analysis_json;
+      const analysis = token ? analyses[song.id]?.analysis_json : undefined;
       const categories = Array.from(new Set(analysis?.techniques.map((item) => item.category) ?? [])).slice(0, 4);
       return <article key={song.id} className="grid gap-3 border-b border-[#edf0ed] px-4 py-4 last:border-0 hover:bg-[#fbfdfb] md:grid-cols-[minmax(180px,1.1fr)_120px_1.8fr_auto] md:items-center">
         <Link href={`/songs/${song.id}`} className="min-w-0"><p className="truncate text-[13px] font-bold text-[#374039]">{song.title}</p><p className="mt-1 truncate text-[11px] text-[#858e87]">{song.artist}</p></Link>

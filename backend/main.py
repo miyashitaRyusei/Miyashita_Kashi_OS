@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel
 from typing import Any, List, Optional
 import json
@@ -14,6 +14,7 @@ from research_analysis import (
     derive_research_items,
     validate_research_analysis,
 )
+from research_auth import require_research_admin_token
 
 # 環境変数の読み込み
 load_dotenv()
@@ -329,7 +330,10 @@ async def get_research_analysis_schema_v02():
 
 
 @app.get("/api/songs/{song_id}/research-analyses")
-async def get_song_research_analyses_api(song_id: str):
+async def get_song_research_analyses_api(
+    song_id: str,
+    _: None = Depends(require_research_admin_token),
+):
     try:
         return {"analyses": db.get_song_research_analyses(song_id)}
     except Exception as e:
@@ -338,7 +342,10 @@ async def get_song_research_analyses_api(song_id: str):
 
 
 @app.get("/api/songs/{song_id}/research-analysis")
-async def get_active_song_research_analysis_api(song_id: str):
+async def get_active_song_research_analysis_api(
+    song_id: str,
+    _: None = Depends(require_research_admin_token),
+):
     try:
         return {"analysis": db.get_active_song_research_analysis(song_id)}
     except Exception as e:
@@ -347,7 +354,11 @@ async def get_active_song_research_analysis_api(song_id: str):
 
 
 @app.post("/api/songs/{song_id}/research-analyses", status_code=201)
-async def import_song_research_analysis(song_id: str, req: ResearchAnalysisImportRequest):
+async def import_song_research_analysis(
+    song_id: str,
+    req: ResearchAnalysisImportRequest,
+    _: None = Depends(require_research_admin_token),
+):
     if req.source not in {"chatgpt", "manual", "other"}:
         raise HTTPException(status_code=422, detail="source must be chatgpt, manual, or other")
     try:
@@ -390,6 +401,7 @@ async def get_research_items_api(
     song_id: Optional[str] = None,
     item_type: Optional[str] = None,
     is_favorite: Optional[bool] = None,
+    _: None = Depends(require_research_admin_token),
 ):
     allowed_types = {
         "summary_insight", "technique", "sentence_ending", "connection",
