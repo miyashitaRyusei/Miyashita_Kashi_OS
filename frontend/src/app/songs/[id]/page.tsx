@@ -5,7 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Music, Clock, Copy, Check, Rewind, Play, FastForward, Shuffle, Smile, Meh, Frown } from "lucide-react";
 import type { Song } from "@/types";
 import type { SongWithDetails } from "@/lib/api";
-import { fetchSongById, fetchSongs, updateSongMeta } from "@/lib/api";
+import type { ReferenceTier } from "@/types/research";
+import { fetchSongById, fetchSongs, updateSongMeta, updateSongReferenceTier } from "@/lib/api";
+import { useResearchAdminToken } from "@/hooks/useResearchAdminToken";
 import { formatSongAsMarkdown, copyToClipboard } from "@/lib/export";
 import SectionAccordion from "@/components/song-detail/SectionAccordion";
 import SectionTrajectoryChart from "@/components/song-detail/SectionTrajectoryChart";
@@ -47,6 +49,8 @@ export default function SongDetailPage() {
   const [isEditingMeta, setIsEditingMeta] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editArtist, setEditArtist] = useState("");
+  const [tierUpdating, setTierUpdating] = useState(false);
+  const { token: researchAdminToken } = useResearchAdminToken();
 
   // ============================================
   // データ取得
@@ -109,6 +113,20 @@ export default function SongDetailPage() {
     } catch (err) {
       alert("更新に失敗しました");
       console.error(err);
+    }
+  };
+
+  const handleReferenceTierChange = async (referenceTier: ReferenceTier | null) => {
+    if (!song || !researchAdminToken) return;
+    setTierUpdating(true);
+    try {
+      const updated = await updateSongReferenceTier(song.id, referenceTier, researchAdminToken);
+      setSong((current) => current ? { ...current, reference_tier: updated.reference_tier } : current);
+    } catch (err) {
+      console.error("reference_tier の更新に失敗しました", err);
+      alert("参考区分を更新できませんでした。");
+    } finally {
+      setTierUpdating(false);
     }
   };
 
@@ -257,6 +275,25 @@ export default function SongDetailPage() {
         {/* =============================== */}
         {/* メタデータカード */}
         {/* =============================== */}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#e1e7e1] bg-white px-4 py-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Reference tier</p>
+            <p className="mt-1 text-[12px] text-[#69726b]">この曲を通常の研究対象に含めるかを曲単位で管理します。</p>
+          </div>
+          <select
+            value={song.reference_tier ?? ""}
+            onChange={(event) => handleReferenceTierChange((event.target.value || null) as ReferenceTier | null)}
+            disabled={!researchAdminToken || tierUpdating}
+            title={researchAdminToken ? "参考区分を変更" : "変更には研究管理トークンが必要です"}
+            className="rounded-md border border-[#dfe5df] bg-white px-3 py-2 text-[12px] text-[#465048] outline-none disabled:cursor-not-allowed disabled:bg-[#f4f5f3] disabled:text-[#9ba39d]"
+          >
+            <option value="">未分類</option>
+            <option value="core">Core</option>
+            <option value="selected">Selected</option>
+            <option value="archive">Archive</option>
+          </select>
+        </div>
+
         <ResearchAnalysisPanel song={song} />
 
         <details className="group mb-8 rounded-lg border border-[#e9e9e7] bg-white">

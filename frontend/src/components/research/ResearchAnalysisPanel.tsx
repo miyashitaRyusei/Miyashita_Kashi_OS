@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { BookOpen, Check, Clipboard, Download, X } from "lucide-react";
 import type { SongWithDetails } from "@/lib/api";
 import {
@@ -9,7 +10,7 @@ import {
   validateResearchAnalysis,
 } from "@/lib/api";
 import { buildResearchPrompt } from "@/lib/research-prompt";
-import type { ResearchAnalysisV02, SongResearchAnalysis } from "@/types/research";
+import type { ResearchAnalysis, ResearchAnalysisV02, ResearchAnalysisV03, SongResearchAnalysis } from "@/types/research";
 import { useResearchAdminToken } from "@/hooks/useResearchAdminToken";
 import ResearchAdminTokenPrompt from "@/components/research/ResearchAdminTokenPrompt";
 
@@ -21,7 +22,7 @@ export default function ResearchAnalysisPanel({ song }: { song: SongWithDetails 
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
   const [rawJson, setRawJson] = useState("");
-  const [validated, setValidated] = useState<ResearchAnalysisV02 | null>(null);
+  const [validated, setValidated] = useState<ResearchAnalysis | null>(null);
   const [derivedCount, setDerivedCount] = useState(0);
   const [step, setStep] = useState<ImportStep>("paste");
   const [errors, setErrors] = useState<string[]>([]);
@@ -116,7 +117,7 @@ export default function ResearchAnalysisPanel({ song }: { song: SongWithDetails 
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-100 px-5 py-4">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Research</p>
-          <h2 className="mt-1 text-[16px] font-bold text-[#334039]">ChatGPT研究分析</h2>
+          <h2 className="mt-1 text-[16px] font-bold text-[#334039]">研究分析</h2>
         </div>
         <div className="flex gap-2">
           {token && <button onClick={clearToken} className="rounded-md border border-[#dfe5df] bg-white px-3 py-2 text-[10px] font-bold text-[#737b75] hover:bg-[#f4f6f4]">トークン解除</button>}
@@ -136,13 +137,13 @@ export default function ResearchAnalysisPanel({ song }: { song: SongWithDetails 
         ) : loading ? (
           <p className="text-[12px] text-[#8a938c]">研究分析を確認中...</p>
         ) : analysis ? (
-          <ResearchAnalysisView analysis={analysis} />
+          <FocusedSummary analysis={analysis} songId={song.id} version={record?.schema_version ?? analysis.schema_version} />
         ) : (
           <div className="flex items-start gap-3 rounded-md border border-dashed border-emerald-200 bg-white px-4 py-5">
             <BookOpen size={18} className="mt-0.5 text-emerald-500" />
             <div>
               <p className="text-[13px] font-bold text-[#475149]">研究分析はまだありません</p>
-              <p className="mt-1 text-[11px] leading-relaxed text-[#879088]">プロンプトをChatGPTへ持ち出して対話的に深掘りし、最後に出力したv0.2 JSONを取り込めます。</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-[#879088]">プロンプトをChatGPTへ持ち出して対話的に深掘りし、最後に出力したv0.3 JSONを取り込めます。v0.2も引き続き対応します。</p>
             </div>
           </div>
         )}
@@ -171,7 +172,7 @@ export default function ResearchAnalysisPanel({ song }: { song: SongWithDetails 
               ) : validated ? (
                 <div>
                   <div className="mb-4 flex items-center justify-between rounded-md bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800">
-                    <span className="font-bold">v0.2 検証済み</span>
+                    <span className="font-bold">v{validated.schema_version} 検証済み</span>
                     <span>検索項目 {derivedCount}件を生成予定</span>
                   </div>
                   <ResearchAnalysisView analysis={validated} />
@@ -203,7 +204,30 @@ export default function ResearchAnalysisPanel({ song }: { song: SongWithDetails 
   );
 }
 
-function ResearchAnalysisView({ analysis }: { analysis: ResearchAnalysisV02 }) {
+function FocusedSummary({ analysis, songId, version }: { analysis: ResearchAnalysis; songId: string; version: string }) {
+  const counts = analysis.schema_version === "0.3"
+    ? [analysis.techniques.length, analysis.constructions.length, analysis.sentence_endings.length, analysis.phrases.length]
+    : [analysis.techniques.length, analysis.expression_patterns.connections.length + analysis.expression_patterns.modifiers.length, analysis.expression_patterns.sentence_endings.length, analysis.expression_patterns.notable_phrases.length];
+  const links = [["作詞技法", "/techniques"], ["構文・接続", "/constructions"], ["文末表現", "/sentence-endings"], ["フレーズ", "/phrases"]] as const;
+  return <div><div className="mb-4 flex items-center gap-3 text-[11px]"><span className="rounded bg-emerald-100 px-2 py-1 font-bold text-emerald-800">active v{version}</span><span className="text-[#7b847d]">抽出項目 {counts.reduce((a, b) => a + b, 0)}件</span></div><div className="grid gap-2 sm:grid-cols-4">{links.map(([label, href], index) => <Link key={href} href={`${href}?song_id=${songId}`} className="rounded-md border bg-white p-3 hover:border-emerald-300"><p className="text-[10px] text-[#7b847d]">{label}</p><p className="mt-1 text-xl font-bold text-[#354039]">{counts[index]}</p></Link>)}</div><details className="mt-4 rounded-md border border-[#e2e7e2] bg-white"><summary className="cursor-pointer px-4 py-3 text-[11px] font-bold text-[#667068]">旧研究分析を詳しく見る</summary><div className="border-t p-4"><ResearchAnalysisView analysis={analysis} /></div></details></div>;
+}
+
+function ResearchAnalysisView({ analysis }: { analysis: ResearchAnalysis }) {
+  if (analysis.schema_version === "0.3") return <FocusedV03View analysis={analysis} />;
+  return <ResearchAnalysisV02View analysis={analysis} />;
+}
+
+function FocusedV03View({ analysis }: { analysis: ResearchAnalysisV03 }) {
+  const groups = [
+    ["作詞技法", analysis.techniques.map((x) => ({ title: x.name, label: x.category, description: x.description, effect: x.why_it_works, reuse: x.reuse_hint, evidence: x.evidence }))],
+    ["構文・接続", analysis.constructions.map((x) => ({ title: x.expression, label: x.kind, description: x.description, effect: x.effect, reuse: x.reuse_hint, evidence: x.evidence }))],
+    ["文末表現", analysis.sentence_endings.map((x) => ({ title: x.expression, label: "文末", description: x.description, effect: x.effect, reuse: x.reuse_hint, evidence: x.evidence }))],
+    ["フレーズ", analysis.phrases.map((x) => ({ title: x.phrase, label: "phrase", description: x.description, effect: "", reuse: x.reuse_hint, evidence: [{ quote: x.phrase, section: x.section }] }))],
+  ] as const;
+  return <div className="space-y-5">{groups.filter(([, items]) => items.length > 0).map(([title, items]) => <ResearchGroup key={title} title={title}>{items.map((item, index) => <details key={`${title}-${index}`} className="rounded-md border border-[#e2e7e2] bg-white p-3"><summary className="cursor-pointer list-none text-[12px] font-bold"><span className="mr-2 rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] text-emerald-700">{item.label}</span>{item.title}</summary><p className="mt-2 text-[11px] text-[#69716b]">{item.description}</p><p className="mt-2 border-l-2 border-emerald-200 pl-2 text-[11px]"><strong>自作へ:</strong> {item.reuse}</p><div className="mt-3 space-y-2 border-t pt-3 text-[11px]">{item.effect && <p><strong>効果:</strong> {item.effect}</p>}{item.evidence.map((e, i) => <blockquote key={i}>「{e.quote}」{e.section ? `（${e.section}）` : ""}</blockquote>)}</div></details>)}</ResearchGroup>)}</div>;
+}
+
+function ResearchAnalysisV02View({ analysis }: { analysis: ResearchAnalysisV02 }) {
   const expressions = [
     ["文末", analysis.expression_patterns.sentence_endings],
     ["接続", analysis.expression_patterns.connections],
